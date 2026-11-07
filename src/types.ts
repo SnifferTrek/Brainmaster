@@ -12,6 +12,20 @@ export interface UserProgress {
     words: ExerciseStats;
   };
   dailyProgress: DailyProgress[];
+  difficulty: DifficultySettings;
+}
+
+export interface DifficultySettings {
+  logic: DifficultyInfo;
+  memory: DifficultyInfo;
+  math: DifficultyInfo;
+  words: DifficultyInfo;
+}
+
+export interface DifficultyInfo {
+  level: number; // 1-10
+  sessionCorrect: number;
+  sessionTotal: number;
 }
 
 export interface ExerciseStats {
@@ -33,4 +47,6 @@ export interface GameResult {
   score: number;
   maxScore: number;
   timeSpent: number;
+  correctAnswers: number;
+  totalQuestions: number;
 }

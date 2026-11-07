@@ -1,6 +1,12 @@
-import type { UserProgress, GameResult, ExerciseType } from '../types';
+import type { UserProgress, GameResult, ExerciseType, DifficultyInfo } from '../types';
 
 const STORAGE_KEY = 'gehirntraining_progress';
+
+const defaultDifficultyInfo: DifficultyInfo = {
+  level: 1,
+  sessionCorrect: 0,
+  sessionTotal: 0,
+};
 
 const defaultProgress: UserProgress = {
   totalPoints: 0,
@@ -16,18 +22,56 @@ const defaultProgress: UserProgress = {
     words: { played: 0, bestScore: 0, totalPoints: 0 },
   },
   dailyProgress: [],
+  difficulty: {
+    logic: { ...defaultDifficultyInfo },
+    memory: { ...defaultDifficultyInfo },
+    math: { ...defaultDifficultyInfo },
+    words: { ...defaultDifficultyInfo },
+  },
 };
 
 export function getProgress(): UserProgress {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      return { ...defaultProgress, ...JSON.parse(stored) };
+      const parsed = JSON.parse(stored);
+      const progress = { 
+        ...defaultProgress, 
+        ...parsed,
+        difficulty: {
+          logic: { ...defaultDifficultyInfo, ...parsed.difficulty?.logic },
+          memory: { ...defaultDifficultyInfo, ...parsed.difficulty?.memory },
+          math: { ...defaultDifficultyInfo, ...parsed.difficulty?.math },
+          words: { ...defaultDifficultyInfo, ...parsed.difficulty?.words },
+        }
+      };
+      return progress;
     }
   } catch (e) {
     console.error('Error loading progress:', e);
   }
   return { ...defaultProgress };
+}
+
+export function getDifficulty(type: ExerciseType): number {
+  const progress = getProgress();
+  return progress.difficulty[type].level;
+}
+
+export function getDifficultyLabel(level: number): string {
+  const labels = [
+    'Anfänger',      // 1
+    'Einsteiger',    // 2
+    'Fortgeschritten', // 3
+    'Geübt',         // 4
+    'Routiniert',    // 5
+    'Erfahren',      // 6
+    'Kompetent',     // 7
+    'Fortgeschritten+', // 8
+    'Profi',         // 9
+    'Experte',       // 10
+  ];
+  return labels[Math.min(level - 1, 9)] || 'Anfänger';
 }
 
 export function saveProgress(progress: UserProgress): void {
@@ -90,6 +134,29 @@ export function updateProgressWithResult(result: GameResult): UserProgress {
   stats.totalPoints += result.score;
   if (result.score > stats.bestScore) {
     stats.bestScore = result.score;
+  }
+  
+  // Update difficulty tracking
+  const diffInfo = progress.difficulty[result.type];
+  diffInfo.sessionCorrect += result.correctAnswers;
+  diffInfo.sessionTotal += result.totalQuestions;
+  
+  // Calculate success rate and adjust difficulty
+  if (diffInfo.sessionTotal >= 5) {
+    const successRate = diffInfo.sessionCorrect / diffInfo.sessionTotal;
+    
+    if (successRate > 0.8 && diffInfo.level < 10) {
+      diffInfo.level += 1;
+      diffInfo.sessionCorrect = 0;
+      diffInfo.sessionTotal = 0;
+    } else if (successRate < 0.5 && diffInfo.level > 1) {
+      diffInfo.level -= 1;
+      diffInfo.sessionCorrect = 0;
+      diffInfo.sessionTotal = 0;
+    } else if (diffInfo.sessionTotal >= 10) {
+      diffInfo.sessionCorrect = 0;
+      diffInfo.sessionTotal = 0;
+    }
   }
   
   // Update daily progress

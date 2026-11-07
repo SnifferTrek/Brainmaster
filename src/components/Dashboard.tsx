@@ -1,5 +1,5 @@
 import type { UserProgress, ExerciseType } from '../types';
-import { getPointsForNextLevel, getPointsForCurrentLevel, getTodayProgress } from '../utils/storage';
+import { getPointsForNextLevel, getPointsForCurrentLevel, getTodayProgress, getDifficultyLabel } from '../utils/storage';
 
 interface DashboardProps {
   progress: UserProgress;
@@ -114,6 +114,7 @@ export default function Dashboard({ progress, onSelectExercise }: DashboardProps
           {exercises.map(exercise => {
             const isCompleted = todayProgress.exercisesCompleted.includes(exercise.type);
             const stats = progress.exerciseStats[exercise.type];
+            const diffLevel = progress.difficulty[exercise.type].level;
             
             return (
               <button
@@ -130,17 +131,23 @@ export default function Dashboard({ progress, onSelectExercise }: DashboardProps
                     <div className={`w-12 h-12 rounded-xl ${exercise.bgColor} flex items-center justify-center text-2xl`}>
                       {exercise.emoji}
                     </div>
-                    {isCompleted && (
-                      <span className="bg-success-100 text-success-700 text-xs px-2 py-1 rounded-full font-medium">
-                        ✓ Heute gespielt
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="bg-amber-100 text-amber-700 text-xs px-2 py-1 rounded-full font-medium">
+                        Stufe {diffLevel}
                       </span>
-                    )}
+                      {isCompleted && (
+                        <span className="bg-success-100 text-success-700 text-xs px-2 py-1 rounded-full font-medium">
+                          ✓ Heute gespielt
+                        </span>
+                      )}
+                    </div>
                   </div>
                   
                   <h3 className="text-lg font-semibold text-gray-800 mb-1">
                     {exercise.title}
                   </h3>
-                  <p className="text-gray-500 text-sm mb-3">{exercise.description}</p>
+                  <p className="text-gray-500 text-sm mb-1">{exercise.description}</p>
+                  <p className="text-xs text-amber-600 mb-3">{getDifficultyLabel(diffLevel)}</p>
                   
                   <div className="flex items-center gap-4 text-xs text-gray-400">
                     <span>🏆 Best: {stats.bestScore}</span>

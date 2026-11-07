@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { UserProgress, ExerciseType, GameResult } from './types';
-import { getProgress, updateProgressWithResult } from './utils/storage';
+import { getProgress, updateProgressWithResult, getDifficulty } from './utils/storage';
 import Dashboard from './components/Dashboard';
 import LogicGame from './components/LogicGame';
 import MemoryGame from './components/MemoryGame';
@@ -42,13 +42,13 @@ function App() {
   const renderGame = () => {
     switch (currentView) {
       case 'logic':
-        return <LogicGame onComplete={handleGameComplete} onBack={handleBack} />;
+        return <LogicGame onComplete={handleGameComplete} onBack={handleBack} difficulty={getDifficulty('logic')} />;
       case 'memory':
-        return <MemoryGame onComplete={handleGameComplete} onBack={handleBack} />;
+        return <MemoryGame onComplete={handleGameComplete} onBack={handleBack} difficulty={getDifficulty('memory')} />;
       case 'math':
-        return <MathGame onComplete={handleGameComplete} onBack={handleBack} />;
+        return <MathGame onComplete={handleGameComplete} onBack={handleBack} difficulty={getDifficulty('math')} />;
       case 'words':
-        return <WordGame onComplete={handleGameComplete} onBack={handleBack} />;
+        return <WordGame onComplete={handleGameComplete} onBack={handleBack} difficulty={getDifficulty('words')} />;
       default:
         return null;
     }
