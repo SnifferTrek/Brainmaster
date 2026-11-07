@@ -1,4 +1,4 @@
-import type { UserProgress, GameResult, ExerciseType, DifficultyInfo } from '../types';
+import type { UserProgress, GameResult, ExerciseType, DifficultyInfo, AchievementId, Achievement, AchievementData } from '../types';
 
 const STORAGE_KEY = 'gehirntraining_progress';
 
@@ -266,4 +266,123 @@ export function getDifficultyHistory(days: number = 14): { date: string; levels:
   }
   
   return result;
+}
+
+const ACHIEVEMENTS_KEY = 'gehirntraining_achievements';
+
+export const ACHIEVEMENT_DEFINITIONS: Omit<Achievement, 'unlockedAt'>[] = [
+  { id: 'erste-schritte', name: 'Erste Schritte', description: '100 Punkte erreicht', emoji: '🌱', category: 'points' },
+  { id: 'aufsteiger', name: 'Aufsteiger', description: '500 Punkte erreicht', emoji: '📈', category: 'points' },
+  { id: 'profi', name: 'Profi', description: '1.000 Punkte erreicht', emoji: '🎯', category: 'points' },
+  { id: 'meister', name: 'Meister', description: '5.000 Punkte erreicht', emoji: '👑', category: 'points' },
+  
+  { id: 'bestaendig', name: 'Beständig', description: '3-Tage-Streak erreicht', emoji: '🔥', category: 'streak' },
+  { id: 'ausdauernd', name: 'Ausdauernd', description: '7-Tage-Streak erreicht', emoji: '💪', category: 'streak' },
+  { id: 'unaufhaltsam', name: 'Unaufhaltsam', description: '30-Tage-Streak erreicht', emoji: '⚡', category: 'streak' },
+  
+  { id: 'logik-talent', name: 'Logik-Talent', description: 'Stufe 5 bei Logik erreicht', emoji: '🧩', category: 'level' },
+  { id: 'mathe-genie', name: 'Mathe-Genie', description: 'Stufe 5 bei Mathe erreicht', emoji: '🧮', category: 'level' },
+  { id: 'gedaechtnis-kuenstler', name: 'Gedächtnis-Künstler', description: 'Stufe 5 bei Gedächtnis erreicht', emoji: '🃏', category: 'level' },
+  { id: 'wort-akrobat', name: 'Wort-Akrobat', description: 'Stufe 5 bei Wörtern erreicht', emoji: '📝', category: 'level' },
+  { id: 'meister-des-geistes', name: 'Meister des Geistes', description: 'Stufe 10 bei allen Übungen erreicht', emoji: '🧠', category: 'level' },
+];
+
+export function getAchievements(): AchievementData {
+  try {
+    const stored = localStorage.getItem(ACHIEVEMENTS_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.error('Error loading achievements:', e);
+  }
+  return { achievements: {} };
+}
+
+export function saveAchievements(data: AchievementData): void {
+  try {
+    localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error('Error saving achievements:', e);
+  }
+}
+
+export function unlockAchievement(id: AchievementId): boolean {
+  const data = getAchievements();
+  if (data.achievements[id]) {
+    return false;
+  }
+  data.achievements[id] = new Date().toISOString();
+  saveAchievements(data);
+  return true;
+}
+
+export function isAchievementUnlocked(id: AchievementId): boolean {
+  const data = getAchievements();
+  return !!data.achievements[id];
+}
+
+export function getAchievementsList(): Achievement[] {
+  const data = getAchievements();
+  return ACHIEVEMENT_DEFINITIONS.map(def => ({
+    ...def,
+    unlockedAt: data.achievements[def.id] || null,
+  }));
+}
+
+export function checkAndUnlockAchievements(progress: UserProgress): AchievementId[] {
+  const newlyUnlocked: AchievementId[] = [];
+  
+  if (progress.totalPoints >= 100 && unlockAchievement('erste-schritte')) {
+    newlyUnlocked.push('erste-schritte');
+  }
+  if (progress.totalPoints >= 500 && unlockAchievement('aufsteiger')) {
+    newlyUnlocked.push('aufsteiger');
+  }
+  if (progress.totalPoints >= 1000 && unlockAchievement('profi')) {
+    newlyUnlocked.push('profi');
+  }
+  if (progress.totalPoints >= 5000 && unlockAchievement('meister')) {
+    newlyUnlocked.push('meister');
+  }
+  
+  const streak = Math.max(progress.currentStreak, progress.longestStreak);
+  if (streak >= 3 && unlockAchievement('bestaendig')) {
+    newlyUnlocked.push('bestaendig');
+  }
+  if (streak >= 7 && unlockAchievement('ausdauernd')) {
+    newlyUnlocked.push('ausdauernd');
+  }
+  if (streak >= 30 && unlockAchievement('unaufhaltsam')) {
+    newlyUnlocked.push('unaufhaltsam');
+  }
+  
+  if (progress.difficulty.logic.level >= 5 && unlockAchievement('logik-talent')) {
+    newlyUnlocked.push('logik-talent');
+  }
+  if (progress.difficulty.math.level >= 5 && unlockAchievement('mathe-genie')) {
+    newlyUnlocked.push('mathe-genie');
+  }
+  if (progress.difficulty.memory.level >= 5 && unlockAchievement('gedaechtnis-kuenstler')) {
+    newlyUnlocked.push('gedaechtnis-kuenstler');
+  }
+  if (progress.difficulty.words.level >= 5 && unlockAchievement('wort-akrobat')) {
+    newlyUnlocked.push('wort-akrobat');
+  }
+  
+  const allLevel10 = 
+    progress.difficulty.logic.level >= 10 &&
+    progress.difficulty.math.level >= 10 &&
+    progress.difficulty.memory.level >= 10 &&
+    progress.difficulty.words.level >= 10;
+  if (allLevel10 && unlockAchievement('meister-des-geistes')) {
+    newlyUnlocked.push('meister-des-geistes');
+  }
+  
+  return newlyUnlocked;
+}
+
+export function getUnlockedCount(): number {
+  const data = getAchievements();
+  return Object.keys(data.achievements).length;
 }

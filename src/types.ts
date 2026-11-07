@@ -57,3 +57,21 @@ export interface GameResult {
   correctAnswers: number;
   totalQuestions: number;
 }
+
+export type AchievementId = 
+  | 'erste-schritte' | 'aufsteiger' | 'profi' | 'meister'
+  | 'bestaendig' | 'ausdauernd' | 'unaufhaltsam'
+  | 'logik-talent' | 'mathe-genie' | 'gedaechtnis-kuenstler' | 'wort-akrobat' | 'meister-des-geistes';
+
+export interface Achievement {
+  id: AchievementId;
+  name: string;
+  description: string;
+  emoji: string;
+  category: 'points' | 'streak' | 'level';
+  unlockedAt: string | null;
+}
+
+export interface AchievementData {
+  achievements: { [key in AchievementId]?: string };
+}

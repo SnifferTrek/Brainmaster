@@ -1,10 +1,11 @@
 import type { UserProgress, ExerciseType } from '../types';
-import { getPointsForNextLevel, getPointsForCurrentLevel, getTodayProgress, getDifficultyLabel } from '../utils/storage';
+import { getPointsForNextLevel, getPointsForCurrentLevel, getTodayProgress, getDifficultyLabel, getUnlockedCount, ACHIEVEMENT_DEFINITIONS } from '../utils/storage';
 
 interface DashboardProps {
   progress: UserProgress;
   onSelectExercise: (type: ExerciseType) => void;
   onShowStatistics: () => void;
+  onShowAchievements: () => void;
 }
 
 const exercises = [
@@ -42,11 +43,13 @@ const exercises = [
   },
 ];
 
-export default function Dashboard({ progress, onSelectExercise, onShowStatistics }: DashboardProps) {
+export default function Dashboard({ progress, onSelectExercise, onShowStatistics, onShowAchievements }: DashboardProps) {
   const todayProgress = getTodayProgress();
   const pointsForNext = getPointsForNextLevel(progress.level);
   const pointsForCurrent = getPointsForCurrentLevel(progress.level);
   const levelProgress = ((progress.totalPoints - pointsForCurrent) / (pointsForNext - pointsForCurrent)) * 100;
+  const unlockedAchievements = getUnlockedCount();
+  const totalAchievements = ACHIEVEMENT_DEFINITIONS.length;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -57,14 +60,26 @@ export default function Dashboard({ progress, onSelectExercise, onShowStatistics
         </h1>
         <p className="text-gray-600">Trainiere dein Gehirn täglich!</p>
         
-        {/* Statistics Button */}
-        <button
-          onClick={onShowStatistics}
-          className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm"
-        >
-          <span>📊</span>
-          Statistiken anzeigen
-        </button>
+        {/* Navigation Buttons */}
+        <div className="mt-4 flex justify-center gap-3">
+          <button
+            onClick={onShowStatistics}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm"
+          >
+            <span>📊</span>
+            Statistiken
+          </button>
+          <button
+            onClick={onShowAchievements}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200 rounded-full text-sm font-medium text-amber-700 hover:from-amber-100 hover:to-amber-200 transition-all shadow-sm"
+          >
+            <span>🏆</span>
+            Achievements
+            <span className="bg-amber-200 text-amber-800 text-xs px-2 py-0.5 rounded-full">
+              {unlockedAchievements}/{totalAchievements}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}

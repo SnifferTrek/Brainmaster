@@ -1,23 +1,28 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { UserProgress, ExerciseType, GameResult } from './types';
-import { getProgress, updateProgressWithResult, getDifficulty } from './utils/storage';
+import type { UserProgress, ExerciseType, GameResult, AchievementId } from './types';
+import { getProgress, updateProgressWithResult, getDifficulty, checkAndUnlockAchievements } from './utils/storage';
 import Dashboard from './components/Dashboard';
 import LogicGame from './components/LogicGame';
 import MemoryGame from './components/MemoryGame';
 import MathGame from './components/MathGame';
 import WordGame from './components/WordGame';
 import Statistics from './components/Statistics';
+import Achievements from './components/Achievements';
+import AchievementToast from './components/AchievementToast';
 
-type View = 'dashboard' | 'statistics' | ExerciseType;
+type View = 'dashboard' | 'statistics' | 'achievements' | ExerciseType;
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [progress, setProgress] = useState<UserProgress>(getProgress());
   const [showCelebration, setShowCelebration] = useState(false);
   const [lastScore, setLastScore] = useState(0);
+  const [newAchievements, setNewAchievements] = useState<AchievementId[]>([]);
 
   useEffect(() => {
-    setProgress(getProgress());
+    const loadedProgress = getProgress();
+    setProgress(loadedProgress);
+    checkAndUnlockAchievements(loadedProgress);
   }, []);
 
   const handleSelectExercise = useCallback((type: ExerciseType) => {
@@ -28,16 +33,29 @@ function App() {
     setCurrentView('statistics');
   }, []);
 
+  const handleShowAchievements = useCallback(() => {
+    setCurrentView('achievements');
+  }, []);
+
   const handleGameComplete = useCallback((result: GameResult) => {
     const newProgress = updateProgressWithResult(result);
     setProgress(newProgress);
     setLastScore(result.score);
     setShowCelebration(true);
     
+    const unlockedAchievements = checkAndUnlockAchievements(newProgress);
+    
     setTimeout(() => {
       setShowCelebration(false);
+      if (unlockedAchievements.length > 0) {
+        setNewAchievements(unlockedAchievements);
+      }
       setCurrentView('dashboard');
     }, 2000);
+  }, []);
+
+  const handleAchievementToastComplete = useCallback(() => {
+    setNewAchievements([]);
   }, []);
 
   const handleBack = useCallback(() => {
@@ -84,10 +102,24 @@ function App() {
         </div>
       )}
 
+      {newAchievements.length > 0 && (
+        <AchievementToast 
+          achievementIds={newAchievements} 
+          onComplete={handleAchievementToastComplete} 
+        />
+      )}
+
       {currentView === 'dashboard' ? (
-        <Dashboard progress={progress} onSelectExercise={handleSelectExercise} onShowStatistics={handleShowStatistics} />
+        <Dashboard 
+          progress={progress} 
+          onSelectExercise={handleSelectExercise} 
+          onShowStatistics={handleShowStatistics}
+          onShowAchievements={handleShowAchievements}
+        />
       ) : currentView === 'statistics' ? (
         <Statistics progress={progress} onBack={handleBack} />
+      ) : currentView === 'achievements' ? (
+        <Achievements onBack={handleBack} />
       ) : (
         <div className="px-4 py-8">
           {renderGame()}
