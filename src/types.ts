@@ -38,6 +38,13 @@ export interface DailyProgress {
   date: string;
   points: number;
   exercisesCompleted: string[];
+  exerciseResults?: {
+    [key in ExerciseType]?: {
+      correct: number;
+      total: number;
+      difficultyLevel: number;
+    };
+  };
 }
 
 export type ExerciseType = 'logic' | 'memory' | 'math' | 'words';

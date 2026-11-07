@@ -4,6 +4,7 @@ import { getPointsForNextLevel, getPointsForCurrentLevel, getTodayProgress, getD
 interface DashboardProps {
   progress: UserProgress;
   onSelectExercise: (type: ExerciseType) => void;
+  onShowStatistics: () => void;
 }
 
 const exercises = [
@@ -41,7 +42,7 @@ const exercises = [
   },
 ];
 
-export default function Dashboard({ progress, onSelectExercise }: DashboardProps) {
+export default function Dashboard({ progress, onSelectExercise, onShowStatistics }: DashboardProps) {
   const todayProgress = getTodayProgress();
   const pointsForNext = getPointsForNextLevel(progress.level);
   const pointsForCurrent = getPointsForCurrentLevel(progress.level);
@@ -55,6 +56,15 @@ export default function Dashboard({ progress, onSelectExercise }: DashboardProps
           🧠 Gehirntraining
         </h1>
         <p className="text-gray-600">Trainiere dein Gehirn täglich!</p>
+        
+        {/* Statistics Button */}
+        <button
+          onClick={onShowStatistics}
+          className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm"
+        >
+          <span>📊</span>
+          Statistiken anzeigen
+        </button>
       </div>
 
       {/* Stats Cards */}

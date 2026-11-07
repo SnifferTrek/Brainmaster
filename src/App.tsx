@@ -6,8 +6,9 @@ import LogicGame from './components/LogicGame';
 import MemoryGame from './components/MemoryGame';
 import MathGame from './components/MathGame';
 import WordGame from './components/WordGame';
+import Statistics from './components/Statistics';
 
-type View = 'dashboard' | ExerciseType;
+type View = 'dashboard' | 'statistics' | ExerciseType;
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -21,6 +22,10 @@ function App() {
 
   const handleSelectExercise = useCallback((type: ExerciseType) => {
     setCurrentView(type);
+  }, []);
+
+  const handleShowStatistics = useCallback(() => {
+    setCurrentView('statistics');
   }, []);
 
   const handleGameComplete = useCallback((result: GameResult) => {
@@ -80,7 +85,9 @@ function App() {
       )}
 
       {currentView === 'dashboard' ? (
-        <Dashboard progress={progress} onSelectExercise={handleSelectExercise} />
+        <Dashboard progress={progress} onSelectExercise={handleSelectExercise} onShowStatistics={handleShowStatistics} />
+      ) : currentView === 'statistics' ? (
+        <Statistics progress={progress} onBack={handleBack} />
       ) : (
         <div className="px-4 py-8">
           {renderGame()}

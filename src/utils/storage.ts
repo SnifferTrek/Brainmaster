@@ -162,13 +162,24 @@ export function updateProgressWithResult(result: GameResult): UserProgress {
   // Update daily progress
   let todayProgress = progress.dailyProgress.find(d => d.date === today);
   if (!todayProgress) {
-    todayProgress = { date: today, points: 0, exercisesCompleted: [] };
+    todayProgress = { date: today, points: 0, exercisesCompleted: [], exerciseResults: {} };
     progress.dailyProgress.push(todayProgress);
   }
   todayProgress.points += result.score;
   if (!todayProgress.exercisesCompleted.includes(result.type)) {
     todayProgress.exercisesCompleted.push(result.type);
   }
+  
+  // Track exercise results for statistics
+  if (!todayProgress.exerciseResults) {
+    todayProgress.exerciseResults = {};
+  }
+  if (!todayProgress.exerciseResults[result.type]) {
+    todayProgress.exerciseResults[result.type] = { correct: 0, total: 0, difficultyLevel: diffInfo.level };
+  }
+  todayProgress.exerciseResults[result.type]!.correct += result.correctAnswers;
+  todayProgress.exerciseResults[result.type]!.total += result.totalQuestions;
+  todayProgress.exerciseResults[result.type]!.difficultyLevel = diffInfo.level;
   
   // Keep only last 30 days
   progress.dailyProgress = progress.dailyProgress
@@ -187,4 +198,72 @@ export function getTodayProgress(): { points: number; exercisesCompleted: Exerci
     points: todayProgress?.points || 0,
     exercisesCompleted: (todayProgress?.exercisesCompleted || []) as ExerciseType[],
   };
+}
+
+export function getDailyPointsHistory(days: number = 14): { date: string; points: number }[] {
+  const progress = getProgress();
+  const result: { date: string; points: number }[] = [];
+  
+  const today = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0];
+    const dayProgress = progress.dailyProgress.find(d => d.date === dateStr);
+    result.push({
+      date: dateStr,
+      points: dayProgress?.points || 0,
+    });
+  }
+  
+  return result;
+}
+
+export function getSuccessRatesByType(): { type: ExerciseType; rate: number; total: number }[] {
+  const progress = getProgress();
+  const types: ExerciseType[] = ['logic', 'memory', 'math', 'words'];
+  
+  return types.map(type => {
+    let totalCorrect = 0;
+    let totalQuestions = 0;
+    
+    progress.dailyProgress.forEach(day => {
+      if (day.exerciseResults?.[type]) {
+        totalCorrect += day.exerciseResults[type]!.correct;
+        totalQuestions += day.exerciseResults[type]!.total;
+      }
+    });
+    
+    return {
+      type,
+      rate: totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0,
+      total: totalQuestions,
+    };
+  });
+}
+
+export function getDifficultyHistory(days: number = 14): { date: string; levels: { [key in ExerciseType]?: number } }[] {
+  const progress = getProgress();
+  const result: { date: string; levels: { [key in ExerciseType]?: number } }[] = [];
+  
+  const today = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0];
+    const dayProgress = progress.dailyProgress.find(d => d.date === dateStr);
+    
+    const levels: { [key in ExerciseType]?: number } = {};
+    if (dayProgress?.exerciseResults) {
+      (['logic', 'memory', 'math', 'words'] as ExerciseType[]).forEach(type => {
+        if (dayProgress.exerciseResults?.[type]) {
+          levels[type] = dayProgress.exerciseResults[type]!.difficultyLevel;
+        }
+      });
+    }
+    
+    result.push({ date: dateStr, levels });
+  }
+  
+  return result;
 }
