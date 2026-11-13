@@ -3,6 +3,7 @@ import { getRecommendation } from '../utils/trainingPlan';
 import TrainingPlan, { TrainingPlanCard } from './TrainingPlan';
 import type { ReactNode } from 'react';
 import type { UserProgress, ExerciseType } from '../types';
+import ProfileCard from './ProfileCard';
 import { getPointsForNextLevel, getPointsForCurrentLevel, getTodayProgress, getDifficultyLabel, getUnlockedCount, ACHIEVEMENT_DEFINITIONS } from '../utils/storage';
 
 interface DashboardProps {
@@ -55,6 +56,7 @@ const exercises = [
 
 export default function Dashboard({ progress, onSelectExercise, onStartIQ, onShowStatistics, onShowAchievements, onRepeatIntro, challengeCard, onShare, onShowFriends, friendCount }: DashboardProps) {
   const [showPlan, setShowPlan] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const todayProgress = getTodayProgress();
   const recommended = getRecommendation(progress).next;
   const pointsForNext = getPointsForNextLevel(progress.level);
@@ -106,7 +108,12 @@ export default function Dashboard({ progress, onSelectExercise, onStartIQ, onSho
           {friendCount > 0 && (
             <button onClick={onShowFriends} className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all shadow-sm">👥 Freunde ({friendCount})</button>
           )}
+          <button onClick={() => setShowProfile(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary-600 to-accent-600 text-white rounded-full text-sm font-medium shadow-sm hover:opacity-90 transition-all">
+            <span>🎴</span>
+            Mein Profil
+          </button>
         </div>
+        {showProfile && <ProfileCard progress={progress} onClose={() => setShowProfile(false)} />}
       </div>
 
       {challengeCard}

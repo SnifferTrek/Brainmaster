@@ -123,6 +123,9 @@ export function updateProgressWithResult(result: GameResult): UserProgress {
     }
   }
   
+  if (progress.lastPlayedDate !== today) {
+    progress.trainingDays = Math.max(progress.trainingDays || 0, progress.dailyProgress.length) + 1;
+  }
   progress.lastPlayedDate = today;
   progress.gamesPlayed += 1;
   progress.totalPoints += result.score;
