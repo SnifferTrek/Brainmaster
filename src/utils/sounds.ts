@@ -1,3 +1,4 @@
+import { hapticResult } from './haptics';
 const MUTE_KEY = 'brainmaster-sound-muted';
 
 let ctx: AudioContext | null = null;
@@ -86,6 +87,7 @@ function play(notes: Note[]): void {
 }
 
 export function playCorrect(): void {
+  hapticResult(true);
   play([
     { freq: 660, start: 0, duration: 0.12 },
     { freq: 880, start: 0.09, duration: 0.18 },
@@ -93,6 +95,7 @@ export function playCorrect(): void {
 }
 
 export function playWrong(): void {
+  hapticResult(false);
   play([
     { freq: 330, start: 0, duration: 0.18, type: 'triangle', volume: 0.12 },
     { freq: 262, start: 0.14, duration: 0.25, type: 'triangle', volume: 0.1 },
