@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { UserProgress, ExerciseType } from '../types';
 import { 
   getDailyPointsHistory, 
@@ -6,6 +6,8 @@ import {
   getDifficultyHistory,
   getDifficultyLabel 
 } from '../utils/storage';
+import { loadHistory as loadIQHistory, CATEGORY_INFO, CATEGORY_ORDER } from '../iq/questions';
+import type { IQResult } from '../iq/questions';
 
 interface StatisticsProps {
   progress: UserProgress;
@@ -200,10 +202,21 @@ function MultiLineChart({
   );
 }
 
+type StatSection = 'overview' | 'iq' | 'exercises' | 'levels';
+
+const SECTIONS: { id: StatSection; label: string; icon: string }[] = [
+  { id: 'overview', label: 'Übersicht', icon: '📈' },
+  { id: 'iq', label: 'IQ', icon: '🧠' },
+  { id: 'exercises', label: 'Übungen', icon: '🎯' },
+  { id: 'levels', label: 'Stufen', icon: '📊' },
+];
+
 export default function Statistics({ progress, onBack }: StatisticsProps) {
+  const [section, setSection] = useState<StatSection>('overview');
   const dailyPoints = useMemo(() => getDailyPointsHistory(14), []);
   const successRates = useMemo(() => getSuccessRatesByType(), []);
   const difficultyHistory = useMemo(() => getDifficultyHistory(14), []);
+  const iqHistory = useMemo(() => loadIQHistory(), []);
   
   const totalPointsLast14Days = dailyPoints.reduce((sum, d) => sum + d.points, 0);
   const avgPointsPerDay = totalPointsLast14Days / 14;
@@ -215,21 +228,39 @@ export default function Statistics({ progress, onBack }: StatisticsProps) {
   }));
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+    <div className="max-w-4xl mx-auto px-4 py-8 pb-28">
+      <div className="flex items-center justify-between mb-4">
         <button 
           onClick={onBack} 
-          className="text-gray-500 hover:text-gray-700 flex items-center gap-2"
+          className="text-gray-500 hover:text-gray-700 flex items-center gap-2 text-sm"
         >
           <span>←</span> Zurück
         </button>
-        <h1 className="text-2xl font-bold text-gray-800">📊 Statistiken</h1>
-        <div className="w-20" />
+        <h1 className="text-xl font-bold text-gray-800">📊 Statistiken</h1>
+        <div className="w-14" />
       </div>
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="flex gap-1.5 mb-6 overflow-x-auto pb-1">
+        {SECTIONS.map(s => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => setSection(s.id)}
+            className={`shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 ${
+              section === s.id
+                ? 'bg-primary-600 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <span>{s.icon}</span>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {section === 'overview' && (
+      <>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <div className="card text-center">
           <div className="text-3xl mb-1">📈</div>
           <div className="text-2xl font-bold text-gray-800">{totalPointsLast14Days}</div>
@@ -252,17 +283,31 @@ export default function Statistics({ progress, onBack }: StatisticsProps) {
         </div>
       </div>
 
-      {/* Points History Chart */}
-      <div className="card mb-8">
+      <div className="card mb-6">
         <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
           <span>📈</span> Punkte pro Tag
         </h2>
         <p className="text-sm text-gray-500 mb-4">Dein Punkteverlauf der letzten 14 Tage</p>
-        <SimpleLineChart data={chartData} color="#6366F1" height={180} />
+        <SimpleLineChart data={chartData} color="#6366F1" height={160} />
       </div>
+      </>
+      )}
 
-      {/* Success Rates */}
-      <div className="card mb-8">
+      {section === 'iq' && (
+        iqHistory.length > 0 ? (
+          <div className="card mb-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <span>🧠</span> IQ-Test Verlauf
+            </h2>
+            <IQTrendCard history={iqHistory} />
+          </div>
+        ) : (
+          <div className="card text-center text-gray-500 py-8">Noch kein IQ-Test absolviert.</div>
+        )
+      )}
+
+      {section === 'exercises' && (
+      <div className="card mb-6">
         <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
           <span>🎯</span> Erfolgsrate pro Übungstyp
         </h2>
@@ -301,9 +346,10 @@ export default function Statistics({ progress, onBack }: StatisticsProps) {
           Basierend auf {successRates.reduce((sum, s) => sum + s.total, 0)} Fragen insgesamt
         </div>
       </div>
+      )}
 
-      {/* Difficulty Progression */}
-      <div className="card mb-8">
+      {section === 'levels' && (
+      <div className="card mb-6">
         <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
           <span>📊</span> Schwierigkeitsverlauf
         </h2>
@@ -349,8 +395,9 @@ export default function Statistics({ progress, onBack }: StatisticsProps) {
           </div>
         </div>
       </div>
+      )}
 
-      {/* Exercise Details */}
+      {(section === 'overview' || section === 'exercises') && (
       <div className="card">
         <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
           <span>🏆</span> Bestleistungen
@@ -379,11 +426,104 @@ export default function Statistics({ progress, onBack }: StatisticsProps) {
           })}
         </div>
       </div>
+      )}
 
       {/* Footer */}
       <div className="mt-8 text-center text-gray-400 text-sm">
         <p>Spiele regelmässig für bessere Statistiken! 📈</p>
       </div>
+    </div>
+  );
+}
+
+function IQTrendCard({ history }: { history: IQResult[] }) {
+  if (history.length === 0) return null;
+  
+  const first = history[0];
+  const last = history[history.length - 1];
+  const diff = last.iq - first.iq;
+  const W = 300, H = 80;
+  
+  const pts = history.map((r, i) => {
+    const x = history.length === 1 ? W / 2 : 10 + (i / (history.length - 1)) * (W - 20);
+    const y = H - 10 - ((r.iq - 70) / 75) * (H - 20);
+    return [x, y];
+  });
+
+  const fmtDate = (iso: string) => {
+    return new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+  };
+
+  return (
+    <div>
+      <div className="grid grid-cols-3 gap-3 text-center mb-4">
+        <div className="rounded-lg bg-blue-50 p-3">
+          <div className="text-xs text-gray-500">Erster Test</div>
+          <div className="text-2xl font-bold text-blue-700">{first.iq}</div>
+        </div>
+        <div className="rounded-lg bg-blue-50 p-3">
+          <div className="text-xs text-gray-500">Letzter Test</div>
+          <div className="text-2xl font-bold text-blue-700">{last.iq}</div>
+        </div>
+        <div className="rounded-lg bg-blue-50 p-3">
+          <div className="text-xs text-gray-500">Entwicklung</div>
+          <div className={`text-2xl font-bold ${diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-600' : 'text-gray-800'}`}>
+            {diff > 0 ? '+' : ''}{diff}
+          </div>
+        </div>
+      </div>
+
+      {history.length > 1 && (
+        <>
+          <div className="text-center text-sm text-gray-600 mb-3">
+            Dein IQ-Trend: <b>{history.map(r => r.iq).join(' → ')}</b>
+          </div>
+          <svg viewBox={`0 0 ${W} ${H}`} className="w-full mb-4">
+            <polyline 
+              points={pts.map(p => p.join(',')).join(' ')} 
+              fill="none" 
+              stroke="#2563eb" 
+              strokeWidth="2.5" 
+            />
+            {pts.map((p, i) => (
+              <circle key={i} cx={p[0]} cy={p[1]} r="4" fill="#1e3a8a" />
+            ))}
+          </svg>
+        </>
+      )}
+
+      <div className="mt-4">
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">Letzte IQ-Test Ergebnisse</h3>
+        <ul className="divide-y divide-gray-100 text-sm max-h-40 overflow-auto">
+          {[...history].reverse().slice(0, 5).map(r => (
+            <li key={r.id} className="flex justify-between py-2">
+              <span className="text-gray-600">{fmtDate(r.date)}</span>
+              <span className="text-gray-800">
+                <b>IQ {r.iq}</b> · {r.correct}/{r.total} richtig
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {last.categoryScores && (
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Letztes Profil</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {CATEGORY_ORDER.map(k => {
+              const score = last.categoryScores[k];
+              return (
+                <div key={k} className="text-center p-2 rounded-lg bg-gray-50">
+                  <div className="text-xs text-gray-500">{CATEGORY_INFO[k].short}</div>
+                  <div className={`text-lg font-bold ${score >= 70 ? 'text-green-600' : score >= 40 ? 'text-blue-600' : 'text-amber-600'}`}>
+                    {score}%
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

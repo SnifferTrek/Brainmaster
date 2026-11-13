@@ -2,11 +2,13 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { GameResult } from '../types';
 import { playCorrect, playWrong, playGameStart } from '../utils/sounds';
 import { getDifficultyLabel } from '../utils/storage';
+import { drillSignature, generateUnique } from '../utils/questionSignature';
 
 interface MemoryGameProps {
   onComplete: (result: GameResult) => void;
   onBack: () => void;
   difficulty: number;
+  sessionMode?: boolean;
 }
 
 type RoundKind = 'order' | 'missing' | 'grid' | 'pattern' | 'logic' | 'numbers';
@@ -141,10 +143,19 @@ function makeRound(kind: RoundKind, d: number): Round {
 const KINDS: RoundKind[] = ['order', 'missing', 'grid', 'pattern', 'logic', 'numbers'];
 const TOTAL_ROUNDS = 16;
 
+function roundSig(r: Round): string {
+  return drillSignature(`${r.kind}:${r.question}`, r.options[r.answer] ?? '');
+}
+
 function buildRounds(d: number): Round[] {
   const kinds: RoundKind[] = [];
   while (kinds.length < TOTAL_ROUNDS) kinds.push(...shuffle(KINDS));
-  return kinds.slice(0, TOTAL_ROUNDS).map(k => makeRound(k, d));
+  const rounds: Round[] = [];
+  for (const k of kinds.slice(0, TOTAL_ROUNDS)) {
+    const prev = rounds.length ? roundSig(rounds[rounds.length - 1]) : null;
+    rounds.push(generateUnique(roundSig, () => makeRound(k, d), prev));
+  }
+  return rounds;
 }
 
 type Phase = 'memorize' | 'fading' | 'question' | 'feedback';
@@ -178,7 +189,7 @@ function ShowView({ show }: { show: Show }) {
   );
 }
 
-export default function MemoryGame({ onComplete, onBack, difficulty }: MemoryGameProps) {
+export default function MemoryGame({ onComplete, onBack, difficulty, sessionMode }: MemoryGameProps) {
   const rounds = useMemo(() => buildRounds(difficulty), [difficulty]);
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState<Phase>('memorize');
@@ -234,7 +245,11 @@ export default function MemoryGame({ onComplete, onBack, difficulty }: MemoryGam
     });
   }, [onComplete, score, maxScore, correct, rounds.length]);
 
-  if (done) {
+  useEffect(() => {
+    if (sessionMode && done) handleFinish();
+  }, [sessionMode, done, handleFinish]);
+
+  if (done && !sessionMode) {
     return (
       <div className="card max-w-lg mx-auto text-center animate-scaleIn">
         <div className="text-6xl mb-4">{correct / rounds.length >= 0.7 ? '🏆' : '🧠'}</div>
@@ -254,7 +269,6 @@ export default function MemoryGame({ onComplete, onBack, difficulty }: MemoryGam
   }
 
   const meta = KIND_META[round.kind];
-  const showContent = phase === 'memorize' || phase === 'fading';
 
   return (
     <div className="max-w-lg mx-auto">
@@ -282,8 +296,8 @@ export default function MemoryGame({ onComplete, onBack, difficulty }: MemoryGam
         </div>
 
         <div className="min-h-[240px] flex flex-col justify-center">
-          {showContent ? (
-            <div className={`transition-all duration-700 ${phase === 'fading' ? 'opacity-0 scale-90 blur-sm' : 'opacity-100'}`}>
+          {phase === 'memorize' ? (
+            <div>
               <p className="text-center text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 mb-4 text-sm">
                 {round.hint}
               </p>
@@ -292,6 +306,11 @@ export default function MemoryGame({ onComplete, onBack, difficulty }: MemoryGam
                 <div key={idx} className="h-1.5 bg-amber-400 rounded-full origin-left" style={{ animation: `memShrink ${memorizeMs}ms linear forwards` }} />
               </div>
               <button onClick={skipMemorize} className="block mx-auto mt-3 text-xs text-gray-400 underline">Ich bin bereit</button>
+            </div>
+          ) : phase === 'fading' ? (
+            <div className="flex flex-col items-center justify-center py-8 animate-pulse">
+              <div className="text-4xl mb-3">🧠</div>
+              <p className="text-gray-500 text-lg font-medium">Bereit?</p>
             </div>
           ) : (
             <div className="animate-fadeIn">

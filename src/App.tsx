@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { UserProgress, ExerciseType, GameResult, AchievementId } from './types';
+import TrainingSession from './components/TrainingSession';
 import { playLevelUp, playAchievement, playDailyChallengeComplete } from './utils/sounds';
 import SoundToggle from './components/SoundToggle';
 import { getProgress, getTodayProgress, updateProgressWithResult, getDifficulty, checkAndUnlockAchievements } from './utils/storage';
@@ -23,15 +24,17 @@ import AchievementToast from './components/AchievementToast';
 import TrainingPlan from './components/TrainingPlan';
 import Onboarding from './components/Onboarding';
 import { isOnboardingDone } from './utils/onboarding';
-import { saveProgress, getPointsForCurrentLevel } from './utils/storage';
+import { applyPlacementLevel } from './utils/trainingLevel';
+import Settings from './components/Settings';
 
-type View = 'dashboard' | 'plan' | 'statistics' | 'achievements' | 'iq' | ExerciseType;
+type View = 'dashboard' | 'plan' | 'statistics' | 'achievements' | 'settings' | 'iq' | 'session' | ExerciseType;
 
 const TABS: { view: View; label: string; icon: string }[] = [
   { view: 'dashboard', label: 'Start', icon: '🏠' },
   { view: 'plan', label: 'Plan', icon: '🎯' },
   { view: 'statistics', label: 'Statistik', icon: '📊' },
   { view: 'achievements', label: 'Erfolge', icon: '🏆' },
+  { view: 'settings', label: 'Einstellungen', icon: '⚙️' },
 ];
 
 function App() {
@@ -96,17 +99,21 @@ function App() {
 
   const myStats = profile ? buildStats(profile, progress) : null;
   const handleOnboardingFinish = useCallback((startLevel: number | null) => {
-    if (startLevel && startLevel > 1) {
-      const p = getProgress();
-      if (p.totalPoints === 0) {
-        p.totalPoints = getPointsForCurrentLevel(startLevel);
-        p.level = startLevel;
-        saveProgress(p);
-      }
+    if (startLevel != null && startLevel >= 1) {
+      applyPlacementLevel(startLevel);
     }
     setProgress(getProgress());
     setShowOnboarding(false);
     setCurrentView('dashboard');
+  }, []);
+
+  const handleOnboardingStartIQTest = useCallback((startLevel: number) => {
+    if (startLevel >= 1) {
+      applyPlacementLevel(startLevel);
+    }
+    setProgress(getProgress());
+    setShowOnboarding(false);
+    setCurrentView('iq');
   }, []);
 
   const [live, setLive] = useState<LiveStats>(emptyLiveStats());
@@ -147,6 +154,11 @@ function App() {
   const handleSelectExercise = useCallback((type: ExerciseType) => {
     setLive(prev => ({ ...emptyLiveStats(sessionPoints.current), memoryScore: prev.memoryScore, mathBest: prev.mathBest, logicBest: prev.logicBest }));
     setCurrentView(type);
+  }, []);
+
+  const handleStartSession = useCallback(() => {
+    setLive(emptyLiveStats(sessionPoints.current));
+    setCurrentView('session');
   }, []);
 
   const handleAnswer = useCallback((type: 'math' | 'logic', correct: boolean) => {
@@ -205,7 +217,17 @@ function App() {
   const renderGame = () => {
     switch (currentView) {
       case 'iq':
-        return <IQTest onBack={handleBack} />;
+        return (
+          <IQTest
+            onBack={handleBack}
+            onSelectExercise={handleSelectExercise}
+            onOpenStatistics={() => setCurrentView('statistics')}
+            onStartTraining={() => {
+              setProgress(getProgress());
+              handleStartSession();
+            }}
+          />
+        );
       case 'logic':
         return <LogicGame onComplete={handleGameComplete} onBack={handleBack} difficulty={getDifficulty('logic')} onAnswer={c => handleAnswer('logic', c)} onScoreChange={handleScoreChange} />;
       case 'memory':
@@ -234,7 +256,7 @@ function App() {
       )}
 
       <SoundToggle />
-      {showOnboarding && <Onboarding onFinish={handleOnboardingFinish} />}
+      {showOnboarding && <Onboarding onFinish={handleOnboardingFinish} onStartIQTest={handleOnboardingStartIQTest} />}
       {showCelebration && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white rounded-3xl p-8 text-center shadow-2xl animate-scaleIn max-w-sm mx-4">
@@ -283,31 +305,42 @@ function App() {
         />
       )}
 
-      <div className={isTab ? 'pb-24' : ''}>
+      <div className={isTab ? 'pb-[calc(5.5rem+env(safe-area-inset-bottom))]' : ''}>
         {currentView === 'dashboard' ? (
           <Dashboard
             progress={progress}
             onSelectExercise={handleSelectExercise}
             onShowPlan={() => setCurrentView('plan')}
-            onRepeatIntro={() => setShowOnboarding(true)}
-            onShare={handleShare}
-            friendCount={friends.length}
-            onShowFriends={() => setModal('friends')}
             onStartIQ={() => setCurrentView('iq')}
-            challengeCard={
-              <ChallengeCard
-                challenge={challenge}
-                completed={completed}
-                value={getChallengeValue(challenge, live, getTodayProgress().exercisesCompleted)}
-              />
-            }
+            onStartSession={handleStartSession}
+          />
+        ) : currentView === 'session' ? (
+          <TrainingSession
+            progress={progress}
+            onProgress={setProgress}
+            onExit={() => {
+              setProgress(getProgress());
+              setCurrentView('dashboard');
+            }}
+            onNewAchievements={setNewAchievements}
           />
         ) : currentView === 'plan' ? (
-          <TrainingPlan progress={progress} onBack={handleBack} />
+          <TrainingPlan progress={progress} onBack={handleBack} onSelectExercise={handleSelectExercise} onStartSession={handleStartSession} />
         ) : currentView === 'statistics' ? (
           <Statistics progress={progress} onBack={handleBack} />
         ) : currentView === 'achievements' ? (
-          <Achievements onBack={handleBack} />
+          <div className="max-w-4xl mx-auto px-4 pt-6">
+            <Achievements onBack={handleBack} embedded />
+          </div>
+        ) : currentView === 'settings' ? (
+          <Settings
+            progress={progress}
+            onBack={handleBack}
+            onRepeatIntro={() => setShowOnboarding(true)}
+            onShare={handleShare}
+            onShowFriends={() => setModal('friends')}
+            friendCount={friends.length}
+          />
         ) : (
           <div className="max-w-4xl mx-auto px-4 py-8">
             <div className="mb-4">
@@ -324,8 +357,11 @@ function App() {
       </div>
 
       {isTab && (
-        <nav className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
-          <div className="max-w-xl mx-auto grid grid-cols-4">
+        <nav
+          className="fixed bottom-0 inset-x-0 z-40 bg-white border-t-2 border-gray-200 shadow-[0_-6px_20px_rgba(0,0,0,0.08)]"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}
+        >
+          <div className="max-w-xl mx-auto grid grid-cols-5 px-1 pt-1">
             {TABS.map(t => {
               const active = currentView === t.view;
               return (
@@ -333,11 +369,17 @@ function App() {
                   key={t.view}
                   onClick={() => setCurrentView(t.view)}
                   aria-current={active ? 'page' : undefined}
-                  className={`relative flex flex-col items-center gap-0.5 py-2.5 text-xs font-medium transition-colors ${active ? 'text-primary-700' : 'text-gray-500 hover:text-gray-700'}`}
+                  className={`relative flex flex-col items-center gap-0.5 py-2 px-1 rounded-xl text-[10px] sm:text-xs font-semibold transition-all ${
+                    active
+                      ? 'text-primary-700 bg-primary-50'
+                      : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                  }`}
                 >
-                  {active && <span className="absolute top-0 h-1 w-10 rounded-b-full bg-primary-600" />}
-                  <span className="text-xl">{t.icon}</span>
-                  {t.label}
+                  {active && (
+                    <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full bg-primary-600" />
+                  )}
+                  <span className={`text-lg sm:text-xl ${active ? 'scale-110' : ''} transition-transform`}>{t.icon}</span>
+                  <span className="leading-tight text-center">{t.label}</span>
                 </button>
               );
             })}

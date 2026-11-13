@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { GameResult } from '../types';
 import { playCorrect, playWrong, playGameStart } from '../utils/sounds';
 import { getDifficultyLabel } from '../utils/storage';
+import { drillSignature, generateUnique } from '../utils/questionSignature';
 
 interface MathGameProps {
   onComplete: (result: GameResult) => void;
@@ -9,6 +10,7 @@ interface MathGameProps {
   onScoreChange?: (score: number) => void;
   onBack: () => void;
   difficulty: number;
+  sessionMode?: boolean;
 }
 
 interface MathProblem {
@@ -76,7 +78,21 @@ function generateProblem(difficulty: number): MathProblem {
   };
 }
 
-export default function MathGame({ onComplete, onBack, difficulty, onAnswer, onScoreChange }: MathGameProps) {
+function buildProblemList(difficulty: number, count: number): MathProblem[] {
+  const list: MathProblem[] = [];
+  for (let i = 0; i < count; i++) {
+    const prevSig = list.length ? drillSignature(list[list.length - 1].question, list[list.length - 1].answer) : null;
+    const p = generateUnique(
+      (prob) => drillSignature(prob.question, prob.answer),
+      () => generateProblem(difficulty),
+      prevSig,
+    );
+    list.push(p);
+  }
+  return list;
+}
+
+export default function MathGame({ onComplete, onBack, difficulty, onAnswer, onScoreChange, sessionMode }: MathGameProps) {
   const [problems, setProblems] = useState<MathProblem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
@@ -97,11 +113,7 @@ export default function MathGame({ onComplete, onBack, difficulty, onAnswer, onS
 
   useEffect(() => {
     playGameStart();
-    const initialProblems: MathProblem[] = [];
-    for (let i = 0; i < 30; i++) {
-      initialProblems.push(generateProblem(difficulty));
-    }
-    setProblems(initialProblems);
+    setProblems(buildProblemList(difficulty, 30));
     setTimeLeft(gameTime);
 
     timerRef.current = setInterval(() => {
@@ -153,10 +165,7 @@ export default function MathGame({ onComplete, onBack, difficulty, onAnswer, onS
       if (currentIndex < problems.length - 1) {
         setCurrentIndex(prev => prev + 1);
       } else {
-        const newProblems = [...problems];
-        for (let i = 0; i < 10; i++) {
-          newProblems.push(generateProblem(difficulty));
-        }
+        const newProblems = [...problems, ...buildProblemList(difficulty, 10)];
         setProblems(newProblems);
         setCurrentIndex(prev => prev + 1);
       }
@@ -174,6 +183,10 @@ export default function MathGame({ onComplete, onBack, difficulty, onAnswer, onS
     });
   }, [onComplete, score, startTime, correctCount, answered, difficulty]);
 
+  useEffect(() => {
+    if (sessionMode && gameComplete) handleFinish();
+  }, [sessionMode, gameComplete, handleFinish]);
+
   if (problems.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -182,7 +195,7 @@ export default function MathGame({ onComplete, onBack, difficulty, onAnswer, onS
     );
   }
 
-  if (gameComplete) {
+  if (gameComplete && !sessionMode) {
     const successRate = answered > 0 ? Math.round((correctCount / answered) * 100) : 0;
     return (
       <div className="card max-w-lg mx-auto text-center animate-scaleIn">

@@ -1,12 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  QUESTIONS, CATEGORY_INFO, CATEGORY_ORDER, calcIQ, categoryScores, percentileFor, iqLabel,
-  loadHistory, saveResult,
+  CATEGORY_INFO, CATEGORY_ORDER, calcIQ, categoryScores, percentileFor, iqLabel,
+  loadHistory, saveResult, generateQuestions,
 } from './questions';
 import type { AnswerRecord, Category, IQResult, Option, Question, ShapeSpec, Transform } from './questions';
+import { saveTrainingPlan, type TrainingPlanInput, type TrainingPlanSettings } from '../utils/iqTrainingPlan';
+import { applyIQTrainingLevel } from '../utils/trainingLevel';
+import { getReminderPrefs, setReminderEnabled as persistReminderEnabled } from '../utils/reminder';
+import type { ExerciseType } from '../types';
 
-type Stage = 'intro' | 'test' | 'result';
+type Stage = 'intro' | 'test' | 'result' | 'planTime' | 'planDone' | 'postNoPlan';
+
+export type { TrainingPlanSettings, TrainingPlanInput };
 const INK = '#1e3a8a';
+const QUESTION_COUNT = 30;
+
+const TRAINING_TIMES = [
+  { value: 5, label: '5 Min' },
+  { value: 10, label: '10 Min' },
+  { value: 15, label: '15 Min' },
+  { value: 30, label: '30 Min' },
+];
 
 function ShapeSvg({ s, box = 64 }: { s: ShapeSpec | null; box?: number }) {
   if (!s) {
@@ -72,6 +86,10 @@ function shuffleQ(qs: Question[]) {
     }
     return { q: qq, order: idx };
   });
+}
+
+function createQuestions() {
+  return shuffleQ(generateQuestions());
 }
 
 function Radar({ scores, size = 320 }: { scores: Record<Category, number>; size?: number }) {
@@ -157,21 +175,45 @@ async function shareResult(r: IQResult) {
   return 'Bild heruntergeladen, Text kopiert.';
 }
 
-export default function IQTest({ onBack }: { onBack: () => void }) {
+interface IQTestProps {
+  onBack: () => void;
+  onStartTraining?: (plan: TrainingPlanInput) => void;
+  onSelectExercise?: (type: ExerciseType) => void;
+  onOpenStatistics?: () => void;
+}
+
+const EXERCISES: { type: ExerciseType; title: string; emoji: string; desc: string }[] = [
+  { type: 'logic', title: 'Logik-Rätsel', emoji: '🧩', desc: 'Zahlenfolgen & Muster' },
+  { type: 'memory', title: 'Gedächtnis', emoji: '🃏', desc: 'Memory & Sequenzen' },
+  { type: 'math', title: 'Kopfrechnen', emoji: '🧮', desc: 'Schnelle Mathe' },
+  { type: 'words', title: 'Wortspiele', emoji: '📝', desc: 'Anagramme & mehr' },
+];
+
+export default function IQTest({ onBack, onStartTraining, onSelectExercise, onOpenStatistics }: IQTestProps) {
   const [stage, setStage] = useState<Stage>('intro');
   const [history, setHistory] = useState<IQResult[]>(() => loadHistory());
-  const [items, setItems] = useState(() => shuffleQ(QUESTIONS));
+  const [items, setItems] = useState(() => createQuestions());
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<AnswerRecord[]>([]);
   const [left, setLeft] = useState(0);
   const [result, setResult] = useState<IQResult | null>(null);
   const [shareMsg, setShareMsg] = useState('');
+  const [selectedTime, setSelectedTime] = useState(10);
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [extraModules, setExtraModules] = useState<ExerciseType[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const startedAt = useRef(0);
   const qStart = useRef(0);
   const locked = useRef(false);
 
   const cur = items[idx];
   const limit = cur ? CATEGORY_INFO[cur.q.category].time : 0;
+
+  const weakAreas = useMemo(() => {
+    if (!result) return [] as Category[];
+    const sorted = [...CATEGORY_ORDER].sort((a, b) => result.categoryScores[a] - result.categoryScores[b]);
+    return sorted.slice(0, 2);
+  }, [result]);
 
   const answer = (choice: number | null) => {
     if (locked.current || !cur) return;
@@ -194,6 +236,7 @@ export default function IQTest({ onBack }: { onBack: () => void }) {
         categoryScores: categoryScores(all), durationSec: Math.round((Date.now() - startedAt.current) / 1000),
       };
       saveResult(r);
+      applyIQTrainingLevel(r.iq);
       setHistory(loadHistory());
       setAnswers(all);
       setResult(r);
@@ -217,7 +260,7 @@ export default function IQTest({ onBack }: { onBack: () => void }) {
   }, [stage, idx, limit]);
 
   const start = () => {
-    setItems(shuffleQ(QUESTIONS));
+    setItems(createQuestions());
     setIdx(0); setAnswers([]); setResult(null); setShareMsg('');
     startedAt.current = Date.now();
     setStage('test');
@@ -233,41 +276,61 @@ export default function IQTest({ onBack }: { onBack: () => void }) {
     return { best: sorted.slice(0, 2), worst: sorted.slice(-2).reverse() };
   }, [result]);
 
+  const finishPlanSetup = () => {
+    const prefs = getReminderPrefs();
+    const plan: TrainingPlanInput = {
+      dailyMinutes: selectedTime,
+      focusAreas: weakAreas,
+      extraModules: extraModules.length > 0 ? extraModules : undefined,
+      reminderEnabled,
+      reminderHour: prefs.hour,
+    };
+    saveTrainingPlan(plan);
+    persistReminderEnabled(reminderEnabled);
+    setStage('planDone');
+  };
+
+  const toggleExtraModule = (t: ExerciseType) => {
+    setExtraModules(prev => (prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]));
+  };
+
   if (stage === 'intro') {
-    const first = history[0], last = history[history.length - 1];
+    const hasHistory = history.length > 0;
     return (
-      <div className="max-w-2xl mx-auto space-y-6">
-        <button onClick={onBack} className="text-slate-500 hover:text-slate-800 text-sm">← Zurück zum Dashboard</button>
-        <div className="card">
-          <div className="text-5xl mb-3">🧠</div>
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">IQ-Test</h1>
-          <p className="text-slate-600 mb-5">
-            Ein umfassender kognitiver Test, der aus deinen Antworten einen geschätzten IQ-Wert berechnet.
-          </p>
-          <ul className="space-y-2 text-slate-700 mb-5">
-            <li>⏱️ <b>Dauer:</b> ca. 15–20 Minuten</li>
-            <li>📋 <b>{QUESTIONS.length} Fragen</b> in 6 Bereichen, je 5 Fragen, jeweils vier Antwortmöglichkeiten</li>
-            <li>⏳ <b>Zeitlimit pro Frage:</b> 30–60 Sekunden, je nach Aufgabentyp</li>
-            <li>🚫 <b>Kein Zurück:</b> Eine beantwortete Frage ist endgültig. Läuft die Zeit ab, zählt sie als falsch.</li>
-            <li>⚡ Schnelle richtige Antworten und schwierige Fragen bringen mehr Punkte.</li>
-          </ul>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-6">
-            {CATEGORY_ORDER.map(k => (
-              <div key={k} className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm">
-                <div className="font-semibold text-slate-800">{CATEGORY_INFO[k].label}</div>
-                <div className="text-slate-500">{CATEGORY_INFO[k].time} Sek. pro Frage</div>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-slate-500 mb-4">
-            Hinweis: Das Ergebnis ist eine Schätzung zur Unterhaltung und Selbstreflexion, kein klinisch validierter IQ-Test.
-            Such dir einen ruhigen Ort und nutze keine Hilfsmittel.
-          </p>
-          <button onClick={start} className="w-full py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-semibold text-lg">
-            Test starten
+      <div className="max-w-xl mx-auto px-4 min-h-[calc(100vh-6rem)] flex flex-col">
+        <button onClick={onBack} className="text-slate-500 hover:text-slate-800 text-sm mb-3 shrink-0">← Zurück</button>
+
+        <div className="card text-center flex-1 flex flex-col justify-center">
+          <button onClick={start} className="w-full py-4 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xl mb-4 shadow-lg">
+            🧠 Test starten
           </button>
+
+          <div className="flex items-center justify-center gap-4 text-sm text-slate-600 mb-3">
+            <span>⏱️ ~15 Min</span>
+            <span>📋 {QUESTION_COUNT} Fragen</span>
+            <span>🎯 6 Bereiche</span>
+          </div>
+
+          <p className="text-xs text-slate-500">
+            Schnelle richtige Antworten bringen mehr Punkte. Keine Hilfsmittel — Schätzwert, kein klinischer Test.
+          </p>
+
+          {hasHistory && (
+            <button
+              type="button"
+              onClick={() => setShowHistory(v => !v)}
+              className="mt-4 text-sm text-blue-700 font-medium underline"
+            >
+              {showHistory ? 'Verlauf ausblenden' : `Frühere Ergebnisse anzeigen (${history.length})`}
+            </button>
+          )}
         </div>
-        {history.length > 0 && last && first && <HistoryCard history={history} />}
+
+        {hasHistory && showHistory && (
+          <div className="mt-4 shrink-0">
+            <HistoryCard history={history} />
+          </div>
+        )}
       </div>
     );
   }
@@ -369,13 +432,28 @@ export default function IQTest({ onBack }: { onBack: () => void }) {
               );
             })}
           </div>
-          <p className="text-sm text-slate-600 mt-4">
-            Deine stärksten Bereiche: <b>{strengths.best.map(k => CATEGORY_INFO[k].label).join(', ')}</b>.
-            Mehr Training lohnt sich bei: <b>{strengths.worst.map(k => CATEGORY_INFO[k].label).join(', ')}</b>.
-          </p>
         </div>
 
-        <HistoryCard history={history} />
+        <div className="card bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200">
+          <h2 className="text-xl font-bold text-slate-800 mb-2">📅 Täglicher Trainingsplan</h2>
+          <p className="text-slate-600 mb-4">
+            Soll ich dir einen persönlichen Trainingsplan erstellen, der auf deine Schwächen fokussiert?
+          </p>
+          <div className="flex gap-3">
+            <button 
+              onClick={() => setStage('planTime')}
+              className="flex-1 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold"
+            >
+              Ja, Plan erstellen
+            </button>
+            <button
+              onClick={() => setStage('postNoPlan')}
+              className="flex-1 py-3 rounded-xl bg-white border border-slate-300 text-slate-700 font-semibold"
+            >
+              Nein, danke
+            </button>
+          </div>
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
           <button
@@ -385,12 +463,172 @@ export default function IQTest({ onBack }: { onBack: () => void }) {
             📤 Ergebnis teilen
           </button>
           <button onClick={() => setStage('intro')} className="flex-1 py-3 rounded-xl bg-white border border-slate-300 font-semibold text-slate-700">Zur Übersicht</button>
-          <button onClick={onBack} className="flex-1 py-3 rounded-xl bg-white border border-slate-300 font-semibold text-slate-700">Dashboard</button>
         </div>
         {shareMsg && <p className="text-center text-sm text-slate-600">{shareMsg}</p>}
       </div>
     );
   }
+
+  if (stage === 'planTime') {
+    return (
+      <div className="max-w-md mx-auto">
+        <div className="card">
+          <h2 className="text-xl font-bold text-slate-800 mb-4 text-center">Dein Trainingsplan</h2>
+          <p className="text-sm text-slate-600 text-center mb-4">
+            <b>{selectedTime} Min/Tag</b> · Schwerpunkt:{' '}
+            <b>{weakAreas.map(k => CATEGORY_INFO[k].short).join(', ')}</b>
+          </p>
+
+          <div className="grid grid-cols-4 gap-2 mb-4">
+            {TRAINING_TIMES.map(t => (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setSelectedTime(t.value)}
+                className={`py-2 rounded-lg border text-sm font-semibold ${
+                  selectedTime === t.value ? 'border-green-500 bg-green-50 text-green-700' : 'border-slate-200'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <details className="text-sm mb-4">
+            <summary className="cursor-pointer text-slate-600 font-medium">Zusatz-Module (optional)</summary>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              {EXERCISES.map(ex => (
+                <button
+                  key={ex.type}
+                  type="button"
+                  onClick={() => toggleExtraModule(ex.type)}
+                  className={`p-2 rounded-lg border text-xs font-medium ${
+                    extraModules.includes(ex.type) ? 'border-green-500 bg-green-50' : 'border-slate-200'
+                  }`}
+                >
+                  {ex.emoji} {ex.title}
+                </button>
+              ))}
+            </div>
+          </details>
+
+          <label className="flex items-center justify-between py-2 border-t border-slate-100 text-sm">
+            <span className="text-slate-700">Tägliche Erinnerung</span>
+            <button
+              type="button"
+              onClick={() => setReminderEnabled(v => !v)}
+              className={`px-3 py-1 rounded-full font-semibold ${reminderEnabled ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600'}`}
+            >
+              {reminderEnabled ? 'An' : 'Aus'}
+            </button>
+          </label>
+
+          <button type="button" onClick={finishPlanSetup} className="w-full mt-4 py-4 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-lg">
+            Los — Plan speichern
+          </button>
+          <button type="button" onClick={() => setStage('result')} className="w-full mt-2 py-2 text-slate-500">
+            Zurück
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (stage === 'postNoPlan') {
+    return (
+      <div className="max-w-2xl mx-auto px-4 space-y-6">
+        <div className="card text-center">
+          <div className="text-5xl mb-3">💪</div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Los geht&apos;s mit dem Training</h2>
+          <p className="text-slate-600">
+            Wähle eine Übung zum Starten oder wiederhole den IQ-Test, wenn du möchtest.
+          </p>
+        </div>
+
+        <div className="card">
+          <h2 className="text-lg font-bold text-slate-800 mb-3">Übungen</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {EXERCISES.map(ex => (
+              <button
+                key={ex.type}
+                type="button"
+                onClick={() => (onSelectExercise ? onSelectExercise(ex.type) : onBack())}
+                className="flex items-center gap-3 p-4 rounded-xl border-2 border-slate-200 hover:border-blue-500 hover:bg-blue-50 text-left"
+              >
+                <span className="text-3xl">{ex.emoji}</span>
+                <span>
+                  <span className="block font-semibold text-slate-800">{ex.title}</span>
+                  <span className="block text-sm text-slate-500">{ex.desc}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onBack}
+          className="w-full p-5 rounded-2xl bg-gradient-to-r from-blue-900 to-indigo-700 text-white text-left shadow-lg flex items-center gap-4"
+        >
+          <span className="text-4xl">🧠</span>
+          <span className="flex-1">
+            <span className="block text-xl font-bold">IQ-Test (Übersicht)</span>
+            <span className="block text-sm text-blue-100">Ergebnis & Statistik</span>
+          </span>
+          <span className="text-2xl">→</span>
+        </button>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          {onOpenStatistics && (
+            <button
+              type="button"
+              onClick={onOpenStatistics}
+              className="flex-1 py-3 rounded-xl bg-white border border-slate-300 font-semibold text-slate-700"
+            >
+              📊 Statistik öffnen
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setStage('result')}
+            className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-700 font-semibold"
+          >
+            Zurück zum Ergebnis
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (stage === 'planDone') {
+    return (
+      <div className="max-w-md mx-auto px-4">
+        <p className="text-center text-slate-600 mb-6">
+          <b>{selectedTime} Min</b> · Schwerpunkt <b>{weakAreas.map(k => CATEGORY_INFO[k].short).join(', ')}</b>
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            if (onStartTraining) {
+              onStartTraining({
+                dailyMinutes: selectedTime,
+                focusAreas: weakAreas,
+                extraModules: extraModules.length > 0 ? extraModules : undefined,
+                reminderEnabled,
+                reminderHour: getReminderPrefs().hour,
+              });
+            } else {
+              onBack();
+            }
+          }}
+          className="w-full py-5 rounded-2xl bg-green-600 hover:bg-green-700 text-white font-extrabold text-2xl shadow-lg"
+        >
+          Los — Training starten
+        </button>
+      </div>
+    );
+  }
+
   return null;
 }
 
@@ -404,8 +642,8 @@ function HistoryCard({ history }: { history: IQResult[] }) {
     return [x, y];
   });
   return (
-    <div className="card">
-      <h2 className="text-xl font-bold text-slate-800 mb-3">Verlauf</h2>
+    <div className="card mt-4">
+      <h2 className="text-xl font-bold text-slate-800 mb-3">📈 IQ-Trend</h2>
       {history.length > 1 ? (
         <>
           <div className="grid grid-cols-3 gap-3 text-center mb-4">
@@ -418,15 +656,18 @@ function HistoryCard({ history }: { history: IQResult[] }) {
             <polyline points={pts.map(p => p.join(',')).join(' ')} fill="none" stroke="#2563eb" strokeWidth="2.5" />
             {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="3.5" fill="#1e3a8a" />)}
           </svg>
+          <div className="text-center text-sm text-slate-600">
+            Dein IQ-Trend: <b>{history.map(r => r.iq).join(' → ')}</b>
+          </div>
         </>
       ) : (
         <p className="text-sm text-slate-500 mb-3">Mach den Test erneut, um deine Entwicklung zu vergleichen.</p>
       )}
-      <ul className="divide-y divide-slate-100 text-sm max-h-56 overflow-auto">
+      <ul className="divide-y divide-slate-100 text-sm max-h-40 overflow-auto mt-4">
         {[...history].reverse().map(r => (
           <li key={r.id} className="flex justify-between py-2">
             <span className="text-slate-600">{fmtDate(r.date)}</span>
-            <span className="text-slate-800"><b>IQ {r.iq}</b> · {r.correct}/{r.total} richtig</span>
+            <span className="text-slate-800"><b>IQ {r.iq}</b> · {r.correct}/{r.total}</span>
           </li>
         ))}
       </ul>

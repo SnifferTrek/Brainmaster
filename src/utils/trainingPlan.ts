@@ -1,5 +1,6 @@
 import type { UserProgress, ExerciseType } from '../types';
 import { getTodayProgress } from './storage';
+import { getTrainingPlan } from './iqTrainingPlan';
 
 export type GoalId = 'memory' | 'logic' | 'math' | 'words' | 'balanced' | 'weakness';
 
@@ -46,11 +47,22 @@ export interface Recommendation {
 }
 
 export function getRecommendation(progress: UserProgress): Recommendation {
+  const iqPlan = getTrainingPlan();
   const goal = getGoal();
   const today = getTodayProgress().exercisesCompleted;
   let exercises: ExerciseType[];
 
-  if (goal === 'balanced' || goal === null) {
+  if (iqPlan && iqPlan.focusAreas.length > 0) {
+    const primary = iqPlan.focusAreas[0];
+    const focusExercise = primary
+      ? ({ sequence: 'logic', pattern: 'logic', logic: 'logic', analogy: 'words', spatial: 'logic', math: 'math' } as const)[
+          primary
+        ]
+      : 'logic';
+    const extras = (iqPlan.extraModules ?? []).filter(e => e !== focusExercise);
+    const rest = ALL.filter(t => t !== focusExercise && !extras.includes(t));
+    exercises = [focusExercise, ...extras, ...rest];
+  } else if (goal === 'balanced' || goal === null) {
     exercises = [...ALL];
   } else if (goal === 'weakness') {
     exercises = [...ALL].sort((a, b) => {
@@ -60,10 +72,17 @@ export function getRecommendation(progress: UserProgress): Recommendation {
     });
   } else {
     const others = ALL.filter(t => t !== goal).sort(
-      (a, b) => (getSuccessRate(progress, a) ?? -1) - (getSuccessRate(progress, b) ?? -1)
+      (a, b) => (getSuccessRate(progress, a) ?? -1) - (getSuccessRate(progress, b) ?? -1),
     );
     exercises = [goal, ...others.slice(0, 2)];
   }
+
+  const seen = new Set<ExerciseType>();
+  exercises = exercises.filter(e => {
+    if (seen.has(e)) return false;
+    seen.add(e);
+    return true;
+  });
 
   const done = exercises.filter(e => today.includes(e));
   const next = exercises.find(e => !today.includes(e)) ?? null;

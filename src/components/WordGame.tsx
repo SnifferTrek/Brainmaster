@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { GameResult } from '../types';
 import { playCorrect, playWrong, playGameStart } from '../utils/sounds';
 import { getDifficultyLabel } from '../utils/storage';
+import { drillSignature, generateUnique } from '../utils/questionSignature';
 
 interface WordGameProps {
   onComplete: (result: GameResult) => void;
@@ -9,6 +10,7 @@ interface WordGameProps {
   onScoreChange?: (score: number) => void;
   onBack: () => void;
   difficulty: number;
+  sessionMode?: boolean;
 }
 
 type PuzzleType = 'anagram' | 'association' | 'wordChain';
@@ -247,7 +249,12 @@ function generatePuzzle(difficulty: number): WordPuzzle {
   return generators[Math.floor(Math.random() * generators.length)]();
 }
 
-export default function WordGame({ onComplete, onBack, difficulty, onScoreChange }: WordGameProps) {
+function wordPuzzleSig(p: WordPuzzle): string {
+  const ans = p.options[p.correctAnswer] ?? '';
+  return drillSignature(p.question, ans);
+}
+
+export default function WordGame({ onComplete, onBack, difficulty, onScoreChange, sessionMode }: WordGameProps) {
   const [puzzles, setPuzzles] = useState<WordPuzzle[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
@@ -269,7 +276,8 @@ export default function WordGame({ onComplete, onBack, difficulty, onScoreChange
     playGameStart();
     const newPuzzles: WordPuzzle[] = [];
     for (let i = 0; i < numQuestions; i++) {
-      newPuzzles.push(generatePuzzle(difficulty));
+      const prev = newPuzzles.length ? wordPuzzleSig(newPuzzles[newPuzzles.length - 1]) : null;
+      newPuzzles.push(generateUnique(wordPuzzleSig, () => generatePuzzle(difficulty), prev));
     }
     setPuzzles(newPuzzles);
   }, [difficulty, numQuestions]);
@@ -312,6 +320,10 @@ export default function WordGame({ onComplete, onBack, difficulty, onScoreChange
     });
   }, [onComplete, score, startTime, correctCount, numQuestions, difficulty]);
 
+  useEffect(() => {
+    if (sessionMode && gameComplete) handleFinish();
+  }, [sessionMode, gameComplete, handleFinish]);
+
   if (puzzles.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -320,7 +332,7 @@ export default function WordGame({ onComplete, onBack, difficulty, onScoreChange
     );
   }
 
-  if (gameComplete) {
+  if (gameComplete && !sessionMode) {
     const maxScore = numQuestions * (20 + Math.floor(difficulty * 1.5));
     return (
       <div className="card max-w-lg mx-auto text-center animate-scaleIn">

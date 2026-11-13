@@ -4,6 +4,7 @@ import { getAchievementsList, ACHIEVEMENT_DEFINITIONS } from '../utils/storage';
 
 interface AchievementsProps {
   onBack: () => void;
+  embedded?: boolean;
 }
 
 function formatDate(isoString: string): string {
@@ -61,7 +62,7 @@ function AchievementCard({ achievement }: { achievement: Achievement }) {
   );
 }
 
-export default function Achievements({ onBack }: AchievementsProps) {
+export default function Achievements({ onBack, embedded }: AchievementsProps) {
   const achievements = useMemo(() => getAchievementsList(), []);
   
   const pointsAchievements = achievements.filter(a => a.category === 'points');
@@ -73,18 +74,22 @@ export default function Achievements({ onBack }: AchievementsProps) {
   const progressPercent = (unlockedCount / totalCount) * 100;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <button 
-          onClick={onBack} 
-          className="text-gray-500 hover:text-gray-700 flex items-center gap-2"
-        >
-          <span>←</span> Zurück
-        </button>
-        <h1 className="text-2xl font-bold text-gray-800">🏆 Achievements</h1>
-        <div className="w-20" />
-      </div>
+    <div className={`max-w-4xl mx-auto px-4 ${embedded ? 'py-4 pb-28' : 'py-8'}`}>
+      {!embedded && (
+        <div className="flex items-center justify-between mb-8">
+          <button
+            onClick={onBack}
+            className="text-gray-500 hover:text-gray-700 flex items-center gap-2"
+          >
+            <span>←</span> Zurück
+          </button>
+          <h1 className="text-2xl font-bold text-gray-800">🏆 Achievements</h1>
+          <div className="w-20" />
+        </div>
+      )}
+      {embedded && (
+        <h1 className="text-xl font-bold text-gray-800 mb-4">🏆 Achievements</h1>
+      )}
 
       {/* Progress Overview */}
       <div className="card mb-8">

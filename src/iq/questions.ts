@@ -104,6 +104,8 @@ export const QUESTIONS: Question[] = [
 
 export const WEIGHT = { 1: 0.8, 2: 1, 3: 1.3 } as const;
 
+export { generateQuestions } from './questionGenerators';
+
 export interface AnswerRecord {
   id: string;
   category: Category;
@@ -125,18 +127,26 @@ export interface IQResult {
   durationSec: number;
 }
 
+/** Geschätzter IQ: Basis 70, starke Gewichtung der Trefferquote, wenige Richtige → deutlich tiefer. */
 export function calcIQ(answers: AnswerRecord[]): number {
-  let iq = 100;
+  const total = answers.length || 1;
+  const correct = answers.filter(a => a.correct).length;
+  const accuracy = correct / total;
+
+  let iq = 58 + accuracy * 72;
+
   for (const a of answers) {
     const w = WEIGHT[a.difficulty];
     if (a.correct) {
-      const speed = Math.max(0, 1 - a.seconds / a.limit);
-      iq += 1.5 * w + 0.5 * w * speed * speed;
+      const rest = Math.max(0, 1 - a.seconds / a.limit);
+      const speedFactor = rest >= 0.75 ? 1 : rest / 0.75;
+      iq += 0.35 * w * speedFactor;
     } else {
-      iq -= 1.0 * w;
+      iq -= 2.1 * w;
     }
   }
-  return Math.round(Math.min(145, Math.max(70, iq)));
+
+  return Math.round(Math.min(145, Math.max(55, iq)));
 }
 
 function erf(x: number) {

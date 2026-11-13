@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { GameResult } from '../types';
 import { playCorrect, playWrong, playGameStart } from '../utils/sounds';
 import { getDifficultyLabel } from '../utils/storage';
+import { drillSignature, generateUnique } from '../utils/questionSignature';
 
 interface LogicGameProps {
   onComplete: (result: GameResult) => void;
@@ -9,6 +10,7 @@ interface LogicGameProps {
   onScoreChange?: (score: number) => void;
   onBack: () => void;
   difficulty: number;
+  sessionMode?: boolean;
 }
 
 type PuzzleType = 'sequence' | 'pattern' | 'oddOne';
@@ -190,7 +192,12 @@ function generatePuzzle(difficulty: number): Puzzle {
   return generators[Math.floor(Math.random() * generators.length)]();
 }
 
-export default function LogicGame({ onComplete, onBack, difficulty, onAnswer, onScoreChange }: LogicGameProps) {
+function puzzleSig(p: Puzzle): string {
+  const ans = p.options[p.correctAnswer] ?? '';
+  return drillSignature(p.question, ans);
+}
+
+export default function LogicGame({ onComplete, onBack, difficulty, onAnswer, onScoreChange, sessionMode }: LogicGameProps) {
   const [puzzles, setPuzzles] = useState<Puzzle[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
@@ -211,7 +218,8 @@ export default function LogicGame({ onComplete, onBack, difficulty, onAnswer, on
     playGameStart();
     const newPuzzles: Puzzle[] = [];
     for (let i = 0; i < numQuestions; i++) {
-      newPuzzles.push(generatePuzzle(difficulty));
+      const prev = newPuzzles.length ? puzzleSig(newPuzzles[newPuzzles.length - 1]) : null;
+      newPuzzles.push(generateUnique(puzzleSig, () => generatePuzzle(difficulty), prev));
     }
     setPuzzles(newPuzzles);
   }, [difficulty, numQuestions]);
@@ -254,6 +262,10 @@ export default function LogicGame({ onComplete, onBack, difficulty, onAnswer, on
     });
   }, [onComplete, score, startTime, correctCount, numQuestions, difficulty]);
 
+  useEffect(() => {
+    if (sessionMode && gameComplete) handleFinish();
+  }, [sessionMode, gameComplete, handleFinish]);
+
   if (puzzles.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -262,7 +274,7 @@ export default function LogicGame({ onComplete, onBack, difficulty, onAnswer, on
     );
   }
 
-  if (gameComplete) {
+  if (gameComplete && !sessionMode) {
     const maxScore = numQuestions * (20 + Math.floor(difficulty * 1.5));
     return (
       <div className="card max-w-lg mx-auto text-center animate-scaleIn">
