@@ -20,11 +20,19 @@ import {
 import Statistics from './components/Statistics';
 import Achievements from './components/Achievements';
 import AchievementToast from './components/AchievementToast';
+import TrainingPlan from './components/TrainingPlan';
 import Onboarding from './components/Onboarding';
 import { isOnboardingDone } from './utils/onboarding';
 import { saveProgress, getPointsForCurrentLevel } from './utils/storage';
 
-type View = 'dashboard' | 'statistics' | 'achievements' | 'iq' | ExerciseType;
+type View = 'dashboard' | 'plan' | 'statistics' | 'achievements' | 'iq' | ExerciseType;
+
+const TABS: { view: View; label: string; icon: string }[] = [
+  { view: 'dashboard', label: 'Start', icon: '🏠' },
+  { view: 'plan', label: 'Plan', icon: '🎯' },
+  { view: 'statistics', label: 'Statistik', icon: '📊' },
+  { view: 'achievements', label: 'Erfolge', icon: '🏆' },
+];
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -154,14 +162,6 @@ function App() {
     setLive(prev => (prev.currentScore === score ? prev : { ...prev, currentScore: score }));
   }, []);
 
-  const handleShowStatistics = useCallback(() => {
-    setCurrentView('statistics');
-  }, []);
-
-  const handleShowAchievements = useCallback(() => {
-    setCurrentView('achievements');
-  }, []);
-
   const handleGameComplete = useCallback((result: GameResult) => {
     const oldLevel = getProgress().level;
     const doneBefore = getTodayProgress().exercisesCompleted.length;
@@ -199,6 +199,8 @@ function App() {
   const handleBack = useCallback(() => {
     setCurrentView('dashboard');
   }, []);
+
+  const isTab = TABS.some(t => t.view === currentView);
 
   const renderGame = () => {
     switch (currentView) {
@@ -281,41 +283,66 @@ function App() {
         />
       )}
 
-      {currentView === 'dashboard' ? (
-        <Dashboard 
-          progress={progress} 
-          onSelectExercise={handleSelectExercise} 
-          onShowStatistics={handleShowStatistics}
-          onShowAchievements={handleShowAchievements}
-          onRepeatIntro={() => setShowOnboarding(true)}
-          onShare={handleShare}
-          friendCount={friends.length}
-          onShowFriends={() => setModal('friends')}
-          onStartIQ={() => setCurrentView('iq')}
-          challengeCard={
-            <ChallengeCard
-              challenge={challenge}
-              completed={completed}
-              value={getChallengeValue(challenge, live, getTodayProgress().exercisesCompleted)}
-            />
-          }
-        />
-      ) : currentView === 'statistics' ? (
-        <Statistics progress={progress} onBack={handleBack} />
-      ) : currentView === 'achievements' ? (
-        <Achievements onBack={handleBack} />
-      ) : (
-        <div className="px-4 py-8">
-          <div className="mb-4">
-            <ChallengeCard
-              compact
-              challenge={challenge}
-              completed={completed}
-              value={getChallengeValue(challenge, live, getTodayProgress().exercisesCompleted)}
-            />
+      <div className={isTab ? 'pb-24' : ''}>
+        {currentView === 'dashboard' ? (
+          <Dashboard
+            progress={progress}
+            onSelectExercise={handleSelectExercise}
+            onShowPlan={() => setCurrentView('plan')}
+            onRepeatIntro={() => setShowOnboarding(true)}
+            onShare={handleShare}
+            friendCount={friends.length}
+            onShowFriends={() => setModal('friends')}
+            onStartIQ={() => setCurrentView('iq')}
+            challengeCard={
+              <ChallengeCard
+                challenge={challenge}
+                completed={completed}
+                value={getChallengeValue(challenge, live, getTodayProgress().exercisesCompleted)}
+              />
+            }
+          />
+        ) : currentView === 'plan' ? (
+          <TrainingPlan progress={progress} onBack={handleBack} />
+        ) : currentView === 'statistics' ? (
+          <Statistics progress={progress} onBack={handleBack} />
+        ) : currentView === 'achievements' ? (
+          <Achievements onBack={handleBack} />
+        ) : (
+          <div className="max-w-4xl mx-auto px-4 py-8">
+            <div className="mb-4">
+              <ChallengeCard
+                compact
+                challenge={challenge}
+                completed={completed}
+                value={getChallengeValue(challenge, live, getTodayProgress().exercisesCompleted)}
+              />
+            </div>
+            {renderGame()}
           </div>
-          {renderGame()}
-        </div>
+        )}
+      </div>
+
+      {isTab && (
+        <nav className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+          <div className="max-w-xl mx-auto grid grid-cols-4">
+            {TABS.map(t => {
+              const active = currentView === t.view;
+              return (
+                <button
+                  key={t.view}
+                  onClick={() => setCurrentView(t.view)}
+                  aria-current={active ? 'page' : undefined}
+                  className={`relative flex flex-col items-center gap-0.5 py-2.5 text-xs font-medium transition-colors ${active ? 'text-primary-700' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  {active && <span className="absolute top-0 h-1 w-10 rounded-b-full bg-primary-600" />}
+                  <span className="text-xl">{t.icon}</span>
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
       )}
     </div>
   );
