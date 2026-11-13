@@ -9,6 +9,9 @@ interface DashboardProps {
   onRepeatIntro: () => void;
   progress: UserProgress;
   onSelectExercise: (type: ExerciseType) => void;
+  onShare: () => void;
+  onShowFriends: () => void;
+  friendCount: number;
   challengeCard?: ReactNode;
   onShowStatistics: () => void;
   onShowAchievements: () => void;
@@ -49,7 +52,7 @@ const exercises = [
   },
 ];
 
-export default function Dashboard({ progress, onSelectExercise, onShowStatistics, onShowAchievements, onRepeatIntro, challengeCard }: DashboardProps) {
+export default function Dashboard({ progress, onSelectExercise, onShowStatistics, onShowAchievements, onRepeatIntro, challengeCard, onShare, onShowFriends, friendCount }: DashboardProps) {
   const [showPlan, setShowPlan] = useState(false);
   const todayProgress = getTodayProgress();
   const recommended = getRecommendation(progress).next;
@@ -73,7 +76,7 @@ export default function Dashboard({ progress, onSelectExercise, onShowStatistics
         <p className="text-gray-600">Trainiere dein Gehirn täglich!</p>
         
         {/* Navigation Buttons */}
-        <div className="mt-4 flex justify-center gap-3">
+        <div className="mt-4 flex flex-wrap justify-center gap-3">
           <button
             onClick={onShowStatistics}
             className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm"
@@ -98,6 +101,10 @@ export default function Dashboard({ progress, onSelectExercise, onShowStatistics
             <span>🎯</span>
             Trainingsplan
           </button>
+          <button onClick={onShare} className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-full text-sm font-medium hover:bg-primary-700 transition-all shadow-sm">📤 Teilen</button>
+          {friendCount > 0 && (
+            <button onClick={onShowFriends} className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all shadow-sm">👥 Freunde ({friendCount})</button>
+          )}
         </div>
       </div>
 

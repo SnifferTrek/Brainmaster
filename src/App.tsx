@@ -8,6 +8,9 @@ import LogicGame from './components/LogicGame';
 import MemoryGame from './components/MemoryGame';
 import MathGame from './components/MathGame';
 import WordGame from './components/WordGame';
+import { NameModal, ShareModal, CompareModal, FriendsModal } from './components/Social';
+import { getProfile, createProfile, buildStats, createShareLink, decodeShare, getFriends, saveFriend, removeFriend } from './utils/social';
+import type { Profile, SharedStats } from './utils/social';
 import ChallengeCard from './components/ChallengeCard';
 import {
   getChallengeForDate, completeChallenge, isChallengeCompleted, getChallengeValue,
@@ -30,6 +33,59 @@ function App() {
   const [newAchievements, setNewAchievements] = useState<AchievementId[]>([]);
   const [showOnboarding, setShowOnboarding] = useState(!isOnboardingDone());
 
+  const [profile, setProfile] = useState<Profile | null>(getProfile());
+  const [friends, setFriends] = useState<SharedStats[]>(getFriends());
+  const [modal, setModal] = useState<'name' | 'share' | 'friends' | 'compare' | null>(null);
+  const [afterName, setAfterName] = useState<'share' | 'compare' | null>(null);
+  const [incoming, setIncoming] = useState<SharedStats | null>(null);
+  const [compareWith, setCompareWith] = useState<SharedStats | null>(null);
+  const [invalidLink, setInvalidLink] = useState(false);
+
+  const openIncoming = useCallback((f: SharedStats) => {
+    if (getProfile()) {
+      setFriends(saveFriend(f));
+      setCompareWith(f);
+      setModal('compare');
+    } else {
+      setIncoming(f);
+      setAfterName('compare');
+      setModal('name');
+    }
+  }, []);
+
+  useEffect(() => {
+    setProgress(getProgress());
+    const code = new URLSearchParams(window.location.search).get('share');
+    if (code) {
+      const f = decodeShare(code);
+      window.history.replaceState({}, '', window.location.pathname);
+      if (f) openIncoming(f);
+      else setInvalidLink(true);
+    }
+  }, [openIncoming]);
+
+  const handleSaveName = (name: string) => {
+    const p = createProfile(name);
+    setProfile(p);
+    if (afterName === 'compare' && incoming) {
+      setFriends(saveFriend(incoming));
+      setCompareWith(incoming);
+      setIncoming(null);
+      setModal('compare');
+    } else if (afterName === 'share') {
+      setModal('share');
+    } else setModal(null);
+    setAfterName(null);
+  };
+
+  const handleShare = () => {
+    if (!profile) {
+      setAfterName('share');
+      setModal('name');
+    } else setModal('share');
+  };
+
+  const myStats = profile ? buildStats(profile, progress) : null;
   const handleOnboardingFinish = useCallback((startLevel: number | null) => {
     if (startLevel && startLevel > 1) {
       const p = getProgress();
@@ -197,6 +253,24 @@ function App() {
         </div>
       )}
 
+      {invalidLink && (
+        <div className="bg-red-100 text-red-700 text-center text-sm p-2" onClick={() => setInvalidLink(false)}>
+          Der Share-Link ist ungültig. (Tippen zum Schließen)
+        </div>
+      )}
+      {modal === 'name' && <NameModal onSave={handleSaveName} onClose={() => { setModal(null); setAfterName(null); setIncoming(null); }} />}
+      {modal === 'share' && myStats && <ShareModal link={createShareLink(myStats)} onClose={() => setModal(null)} />}
+      {modal === 'compare' && myStats && compareWith && <CompareModal me={myStats} friend={compareWith} onClose={() => setModal(null)} />}
+      {modal === 'friends' && myStats && (
+        <FriendsModal
+          me={myStats}
+          friends={friends}
+          onCompare={f => { setCompareWith(f); setModal('compare'); }}
+          onRemove={id => setFriends(removeFriend(id))}
+          onClose={() => setModal(null)}
+        />
+      )}
+
       {newAchievements.length > 0 && (
         <AchievementToast 
           achievementIds={newAchievements} 
@@ -211,6 +285,9 @@ function App() {
           onShowStatistics={handleShowStatistics}
           onShowAchievements={handleShowAchievements}
           onRepeatIntro={() => setShowOnboarding(true)}
+          onShare={handleShare}
+          friendCount={friends.length}
+          onShowFriends={() => setModal('friends')}
           challengeCard={
             <ChallengeCard
               challenge={challenge}
