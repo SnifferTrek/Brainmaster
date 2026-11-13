@@ -1,10 +1,12 @@
 import type { UserProgress, ExerciseType } from '../types';
-import { getPointsForNextLevel, getPointsForCurrentLevel, getTodayProgress } from '../utils/storage';
+import { getPointsForNextLevel, getPointsForCurrentLevel, getTodayProgress, getDifficultyLabel, getUnlockedCount, ACHIEVEMENT_DEFINITIONS } from '../utils/storage';
 
 interface DashboardProps {
   onRepeatIntro: () => void;
   progress: UserProgress;
   onSelectExercise: (type: ExerciseType) => void;
+  onShowStatistics: () => void;
+  onShowAchievements: () => void;
 }
 
 const exercises = [
@@ -42,11 +44,13 @@ const exercises = [
   },
 ];
 
-export default function Dashboard({ progress, onSelectExercise, onRepeatIntro }: DashboardProps) {
+export default function Dashboard({ progress, onSelectExercise, onShowStatistics, onShowAchievements, onRepeatIntro }: DashboardProps) {
   const todayProgress = getTodayProgress();
   const pointsForNext = getPointsForNextLevel(progress.level);
   const pointsForCurrent = getPointsForCurrentLevel(progress.level);
   const levelProgress = ((progress.totalPoints - pointsForCurrent) / (pointsForNext - pointsForCurrent)) * 100;
+  const unlockedAchievements = getUnlockedCount();
+  const totalAchievements = ACHIEVEMENT_DEFINITIONS.length;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -56,6 +60,27 @@ export default function Dashboard({ progress, onSelectExercise, onRepeatIntro }:
           🧠 Gehirntraining
         </h1>
         <p className="text-gray-600">Trainiere dein Gehirn täglich!</p>
+        
+        {/* Navigation Buttons */}
+        <div className="mt-4 flex justify-center gap-3">
+          <button
+            onClick={onShowStatistics}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm"
+          >
+            <span>📊</span>
+            Statistiken
+          </button>
+          <button
+            onClick={onShowAchievements}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200 rounded-full text-sm font-medium text-amber-700 hover:from-amber-100 hover:to-amber-200 transition-all shadow-sm"
+          >
+            <span>🏆</span>
+            Achievements
+            <span className="bg-amber-200 text-amber-800 text-xs px-2 py-0.5 rounded-full">
+              {unlockedAchievements}/{totalAchievements}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -115,6 +140,7 @@ export default function Dashboard({ progress, onSelectExercise, onRepeatIntro }:
           {exercises.map(exercise => {
             const isCompleted = todayProgress.exercisesCompleted.includes(exercise.type);
             const stats = progress.exerciseStats[exercise.type];
+            const diffLevel = progress.difficulty[exercise.type].level;
             
             return (
               <button
@@ -131,17 +157,23 @@ export default function Dashboard({ progress, onSelectExercise, onRepeatIntro }:
                     <div className={`w-12 h-12 rounded-xl ${exercise.bgColor} flex items-center justify-center text-2xl`}>
                       {exercise.emoji}
                     </div>
-                    {isCompleted && (
-                      <span className="bg-success-100 text-success-700 text-xs px-2 py-1 rounded-full font-medium">
-                        ✓ Heute gespielt
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="bg-amber-100 text-amber-700 text-xs px-2 py-1 rounded-full font-medium">
+                        Stufe {diffLevel}
                       </span>
-                    )}
+                      {isCompleted && (
+                        <span className="bg-success-100 text-success-700 text-xs px-2 py-1 rounded-full font-medium">
+                          ✓ Heute gespielt
+                        </span>
+                      )}
+                    </div>
                   </div>
                   
                   <h3 className="text-lg font-semibold text-gray-800 mb-1">
                     {exercise.title}
                   </h3>
-                  <p className="text-gray-500 text-sm mb-3">{exercise.description}</p>
+                  <p className="text-gray-500 text-sm mb-1">{exercise.description}</p>
+                  <p className="text-xs text-amber-600 mb-3">{getDifficultyLabel(diffLevel)}</p>
                   
                   <div className="flex items-center gap-4 text-xs text-gray-400">
                     <span>🏆 Best: {stats.bestScore}</span>

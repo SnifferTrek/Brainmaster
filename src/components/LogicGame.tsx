@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { GameResult } from '../types';
+import { getDifficultyLabel } from '../utils/storage';
 
 interface LogicGameProps {
   onComplete: (result: GameResult) => void;
   onBack: () => void;
+  difficulty: number;
 }
 
 type PuzzleType = 'sequence' | 'pattern' | 'oddOne';
@@ -16,33 +18,61 @@ interface Puzzle {
   explanation: string;
 }
 
-function generateSequencePuzzle(): Puzzle {
-  const patterns = [
-    { start: 2, step: 3, answer: (n: number[]) => n[n.length - 1] + 3 },
-    { start: 1, step: 2, answer: (n: number[]) => n[n.length - 1] + 2 },
-    { start: 5, step: 5, answer: (n: number[]) => n[n.length - 1] + 5 },
-    { start: 1, multiplier: 2, answer: (n: number[]) => n[n.length - 1] * 2 },
-    { start: 3, multiplier: 2, answer: (n: number[]) => n[n.length - 1] * 2 },
+function generateSequencePuzzle(difficulty: number): Puzzle {
+  const easyPatterns = [
+    { start: 2, step: 2 },
+    { start: 1, step: 3 },
+    { start: 5, step: 5 },
   ];
   
-  const pattern = patterns[Math.floor(Math.random() * patterns.length)];
-  const sequence: number[] = [];
-  let current = pattern.start;
+  const mediumPatterns = [
+    { start: 2, step: 3 },
+    { start: 1, multiplier: 2 },
+    { start: 3, step: 7 },
+  ];
   
-  for (let i = 0; i < 4; i++) {
+  const hardPatterns = [
+    { start: 1, multiplier: 3 },
+    { start: 2, square: true },
+    { start: 1, fibonacci: true },
+    { start: 5, multiplier: 2, add: 1 },
+  ];
+  
+  let patterns;
+  if (difficulty <= 3) {
+    patterns = easyPatterns;
+  } else if (difficulty <= 6) {
+    patterns = [...easyPatterns, ...mediumPatterns];
+  } else {
+    patterns = [...mediumPatterns, ...hardPatterns];
+  }
+  
+  const pattern = patterns[Math.floor(Math.random() * patterns.length)] as Record<string, number | boolean>;
+  const sequenceLength = Math.min(3 + Math.floor(difficulty / 3), 6);
+  const sequence: number[] = [];
+  let current = (pattern.start as number) || 1;
+  
+  for (let i = 0; i < sequenceLength; i++) {
     sequence.push(current);
-    if ('step' in pattern && pattern.step !== undefined) {
-      current += pattern.step;
-    } else if ('multiplier' in pattern && pattern.multiplier !== undefined) {
-      current *= pattern.multiplier;
+    if (pattern.fibonacci) {
+      if (i === 0) current = 1;
+      else current = sequence[i] + (sequence[i - 1] || 0);
+    } else if (pattern.square) {
+      current = (i + 2) * (i + 2);
+    } else if (pattern.multiplier) {
+      current *= pattern.multiplier as number;
+      if (pattern.add) current += pattern.add as number;
+    } else if (pattern.step) {
+      current += pattern.step as number;
     }
   }
   
   const correct = current;
   const options = [correct];
+  const spread = Math.max(5, Math.floor(correct * 0.2));
   
   while (options.length < 4) {
-    const wrong = correct + (Math.floor(Math.random() * 10) - 5);
+    const wrong = correct + (Math.floor(Math.random() * spread * 2) - spread);
     if (wrong !== correct && !options.includes(wrong) && wrong > 0) {
       options.push(wrong);
     }
@@ -59,14 +89,34 @@ function generateSequencePuzzle(): Puzzle {
   };
 }
 
-function generatePatternPuzzle(): Puzzle {
-  const patterns = [
+function generatePatternPuzzle(difficulty: number): Puzzle {
+  const easyPatterns = [
     { shapes: ['🔴', '🔵', '🔴', '🔵', '🔴'], answer: '🔵', name: 'Rot-Blau Wechsel' },
-    { shapes: ['⭐', '⭐', '🌙', '⭐', '⭐'], answer: '🌙', name: 'Stern-Stern-Mond' },
     { shapes: ['🟢', '🟡', '🟢', '🟡', '🟢'], answer: '🟡', name: 'Grün-Gelb Wechsel' },
     { shapes: ['🔺', '🔻', '🔺', '🔻', '🔺'], answer: '🔻', name: 'Dreieck Wechsel' },
-    { shapes: ['❤️', '💙', '💚', '❤️', '💙'], answer: '💚', name: 'Herz-Farben Folge' },
   ];
+  
+  const mediumPatterns = [
+    { shapes: ['⭐', '⭐', '🌙', '⭐', '⭐'], answer: '🌙', name: 'Stern-Stern-Mond' },
+    { shapes: ['❤️', '💙', '💚', '❤️', '💙'], answer: '💚', name: 'Herz-Farben Folge' },
+    { shapes: ['🔴', '🔴', '🔵', '🔵', '🔴', '🔴'], answer: '🔵', name: 'Doppel-Wechsel' },
+  ];
+  
+  const hardPatterns = [
+    { shapes: ['🔴', '🔵', '🔵', '🔴', '🔵', '🔵', '🔴'], answer: '🔵', name: '1-2 Muster' },
+    { shapes: ['⭐', '🌙', '⭐', '⭐', '🌙', '⭐', '⭐', '⭐'], answer: '🌙', name: 'Fibonacci-Muster' },
+    { shapes: ['🟢', '🟡', '🔴', '🟢', '🟡', '🔴', '🟢'], answer: '🟡', name: 'Dreier-Folge' },
+    { shapes: ['🔺', '🔻', '🔺', '🔺', '🔻', '🔺', '🔺', '🔺'], answer: '🔻', name: 'Aufbau-Muster' },
+  ];
+  
+  let patterns;
+  if (difficulty <= 3) {
+    patterns = easyPatterns;
+  } else if (difficulty <= 6) {
+    patterns = [...easyPatterns, ...mediumPatterns];
+  } else {
+    patterns = [...mediumPatterns, ...hardPatterns];
+  }
   
   const pattern = patterns[Math.floor(Math.random() * patterns.length)];
   const options = ['🔴', '🔵', '⭐', '🌙', '🟢', '🟡', '🔺', '🔻', '❤️', '💙', '💚'];
@@ -84,15 +134,36 @@ function generatePatternPuzzle(): Puzzle {
   };
 }
 
-function generateOddOnePuzzle(): Puzzle {
-  const sets = [
+function generateOddOnePuzzle(difficulty: number): Puzzle {
+  const easySets = [
     { items: ['Hund', 'Katze', 'Auto', 'Vogel'], odd: 2, explanation: 'Auto ist kein Tier' },
     { items: ['Apfel', 'Birne', 'Karotte', 'Banane'], odd: 2, explanation: 'Karotte ist kein Obst' },
-    { items: ['2', '4', '7', '8'], odd: 2, explanation: '7 ist keine gerade Zahl' },
     { items: ['Rot', 'Blau', 'Tisch', 'Grün'], odd: 2, explanation: 'Tisch ist keine Farbe' },
+  ];
+  
+  const mediumSets = [
+    { items: ['2', '4', '7', '8'], odd: 2, explanation: '7 ist keine gerade Zahl' },
     { items: ['Berlin', 'Hamburg', 'Deutschland', 'München'], odd: 2, explanation: 'Deutschland ist keine Stadt' },
     { items: ['Sonne', 'Mond', 'Stern', 'Wolke'], odd: 3, explanation: 'Wolke ist kein Himmelskörper' },
+    { items: ['Piano', 'Gitarre', 'Trommel', 'Mikrofon'], odd: 3, explanation: 'Mikrofon ist kein Instrument' },
   ];
+  
+  const hardSets = [
+    { items: ['Silber', 'Gold', 'Bronze', 'Holz'], odd: 3, explanation: 'Holz ist kein Metall' },
+    { items: ['Quadrat', 'Kreis', 'Dreieck', 'Linie'], odd: 3, explanation: 'Linie ist keine Fläche' },
+    { items: ['Addition', 'Subtraktion', 'Division', 'Nummer'], odd: 3, explanation: 'Nummer ist keine Operation' },
+    { items: ['Mars', 'Venus', 'Sonne', 'Jupiter'], odd: 2, explanation: 'Sonne ist kein Planet' },
+    { items: ['Demokratie', 'Monarchie', 'Republik', 'Nation'], odd: 3, explanation: 'Nation ist keine Regierungsform' },
+  ];
+  
+  let sets;
+  if (difficulty <= 3) {
+    sets = easySets;
+  } else if (difficulty <= 6) {
+    sets = [...easySets, ...mediumSets];
+  } else {
+    sets = [...mediumSets, ...hardSets];
+  }
   
   const set = sets[Math.floor(Math.random() * sets.length)];
   const shuffledItems = [...set.items].sort(() => Math.random() - 0.5);
@@ -107,28 +178,35 @@ function generateOddOnePuzzle(): Puzzle {
   };
 }
 
-function generatePuzzle(): Puzzle {
-  const generators = [generateSequencePuzzle, generatePatternPuzzle, generateOddOnePuzzle];
+function generatePuzzle(difficulty: number): Puzzle {
+  const generators = [
+    () => generateSequencePuzzle(difficulty),
+    () => generatePatternPuzzle(difficulty),
+    () => generateOddOnePuzzle(difficulty)
+  ];
   return generators[Math.floor(Math.random() * generators.length)]();
 }
 
-export default function LogicGame({ onComplete, onBack }: LogicGameProps) {
+export default function LogicGame({ onComplete, onBack, difficulty }: LogicGameProps) {
   const [puzzles, setPuzzles] = useState<Puzzle[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
+  const [correctCount, setCorrectCount] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [startTime] = useState(Date.now());
   const [gameComplete, setGameComplete] = useState(false);
 
+  const numQuestions = Math.min(5 + Math.floor(difficulty / 2), 8);
+
   useEffect(() => {
     const newPuzzles: Puzzle[] = [];
-    for (let i = 0; i < 5; i++) {
-      newPuzzles.push(generatePuzzle());
+    for (let i = 0; i < numQuestions; i++) {
+      newPuzzles.push(generatePuzzle(difficulty));
     }
     setPuzzles(newPuzzles);
-  }, []);
+  }, [difficulty, numQuestions]);
 
   const handleAnswer = useCallback((answerIndex: number) => {
     if (showResult) return;
@@ -137,10 +215,13 @@ export default function LogicGame({ onComplete, onBack }: LogicGameProps) {
     const correct = answerIndex === puzzles[currentIndex].correctAnswer;
     setIsCorrect(correct);
     if (correct) {
-      setScore(prev => prev + 20);
+      const basePoints = 20;
+      const difficultyBonus = Math.floor(difficulty * 1.5);
+      setScore(prev => prev + basePoints + difficultyBonus);
+      setCorrectCount(prev => prev + 1);
     }
     setShowResult(true);
-  }, [showResult, puzzles, currentIndex]);
+  }, [showResult, puzzles, currentIndex, difficulty]);
 
   const handleNext = useCallback(() => {
     if (currentIndex < puzzles.length - 1) {
@@ -156,10 +237,12 @@ export default function LogicGame({ onComplete, onBack }: LogicGameProps) {
     onComplete({
       type: 'logic',
       score,
-      maxScore: 100,
+      maxScore: numQuestions * (20 + Math.floor(difficulty * 1.5)),
       timeSpent: Math.floor((Date.now() - startTime) / 1000),
+      correctAnswers: correctCount,
+      totalQuestions: numQuestions,
     });
-  }, [onComplete, score, startTime]);
+  }, [onComplete, score, startTime, correctCount, numQuestions, difficulty]);
 
   if (puzzles.length === 0) {
     return (
@@ -170,6 +253,7 @@ export default function LogicGame({ onComplete, onBack }: LogicGameProps) {
   }
 
   if (gameComplete) {
+    const maxScore = numQuestions * (20 + Math.floor(difficulty * 1.5));
     return (
       <div className="card max-w-lg mx-auto text-center animate-scaleIn">
         <div className="text-6xl mb-4">🧠</div>
@@ -178,7 +262,10 @@ export default function LogicGame({ onComplete, onBack }: LogicGameProps) {
         
         <div className="bg-gradient-to-r from-primary-100 to-accent-100 rounded-xl p-6 mb-6">
           <div className="text-4xl font-bold text-primary-600">{score}</div>
-          <div className="text-gray-600">von 100 Punkten</div>
+          <div className="text-gray-600">von {maxScore} Punkten</div>
+          <div className="text-sm text-gray-500 mt-2">
+            {correctCount}/{numQuestions} richtig • Stufe {difficulty} ({getDifficultyLabel(difficulty)})
+          </div>
         </div>
         
         <div className="flex gap-4 justify-center">
@@ -202,6 +289,9 @@ export default function LogicGame({ onComplete, onBack }: LogicGameProps) {
           <span>←</span> Zurück
         </button>
         <div className="flex items-center gap-4">
+          <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded-full text-xs font-medium">
+            Stufe {difficulty}
+          </span>
           <span className="text-sm text-gray-500">Frage {currentIndex + 1}/{puzzles.length}</span>
           <span className="bg-primary-100 text-primary-700 px-3 py-1 rounded-full text-sm font-semibold">
             {score} Punkte

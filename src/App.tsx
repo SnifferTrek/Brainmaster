@@ -1,22 +1,26 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { UserProgress, ExerciseType, GameResult } from './types';
-import { getProgress, updateProgressWithResult } from './utils/storage';
+import type { UserProgress, ExerciseType, GameResult, AchievementId } from './types';
+import { getProgress, updateProgressWithResult, getDifficulty, checkAndUnlockAchievements } from './utils/storage';
 import Dashboard from './components/Dashboard';
 import LogicGame from './components/LogicGame';
 import MemoryGame from './components/MemoryGame';
 import MathGame from './components/MathGame';
 import WordGame from './components/WordGame';
+import Statistics from './components/Statistics';
+import Achievements from './components/Achievements';
+import AchievementToast from './components/AchievementToast';
 import Onboarding from './components/Onboarding';
 import { isOnboardingDone } from './utils/onboarding';
 import { saveProgress, getPointsForCurrentLevel } from './utils/storage';
 
-type View = 'dashboard' | ExerciseType;
+type View = 'dashboard' | 'statistics' | 'achievements' | ExerciseType;
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [progress, setProgress] = useState<UserProgress>(getProgress());
   const [showCelebration, setShowCelebration] = useState(false);
   const [lastScore, setLastScore] = useState(0);
+  const [newAchievements, setNewAchievements] = useState<AchievementId[]>([]);
   const [showOnboarding, setShowOnboarding] = useState(!isOnboardingDone());
 
   const handleOnboardingFinish = useCallback((startLevel: number | null) => {
@@ -34,11 +38,21 @@ function App() {
   }, []);
 
   useEffect(() => {
-    setProgress(getProgress());
+    const loadedProgress = getProgress();
+    setProgress(loadedProgress);
+    checkAndUnlockAchievements(loadedProgress);
   }, []);
 
   const handleSelectExercise = useCallback((type: ExerciseType) => {
     setCurrentView(type);
+  }, []);
+
+  const handleShowStatistics = useCallback(() => {
+    setCurrentView('statistics');
+  }, []);
+
+  const handleShowAchievements = useCallback(() => {
+    setCurrentView('achievements');
   }, []);
 
   const handleGameComplete = useCallback((result: GameResult) => {
@@ -47,10 +61,19 @@ function App() {
     setLastScore(result.score);
     setShowCelebration(true);
     
+    const unlockedAchievements = checkAndUnlockAchievements(newProgress);
+    
     setTimeout(() => {
       setShowCelebration(false);
+      if (unlockedAchievements.length > 0) {
+        setNewAchievements(unlockedAchievements);
+      }
       setCurrentView('dashboard');
     }, 2000);
+  }, []);
+
+  const handleAchievementToastComplete = useCallback(() => {
+    setNewAchievements([]);
   }, []);
 
   const handleBack = useCallback(() => {
@@ -60,13 +83,13 @@ function App() {
   const renderGame = () => {
     switch (currentView) {
       case 'logic':
-        return <LogicGame onComplete={handleGameComplete} onBack={handleBack} />;
+        return <LogicGame onComplete={handleGameComplete} onBack={handleBack} difficulty={getDifficulty('logic')} />;
       case 'memory':
-        return <MemoryGame onComplete={handleGameComplete} onBack={handleBack} />;
+        return <MemoryGame onComplete={handleGameComplete} onBack={handleBack} difficulty={getDifficulty('memory')} />;
       case 'math':
-        return <MathGame onComplete={handleGameComplete} onBack={handleBack} />;
+        return <MathGame onComplete={handleGameComplete} onBack={handleBack} difficulty={getDifficulty('math')} />;
       case 'words':
-        return <WordGame onComplete={handleGameComplete} onBack={handleBack} />;
+        return <WordGame onComplete={handleGameComplete} onBack={handleBack} difficulty={getDifficulty('words')} />;
       default:
         return null;
     }
@@ -98,8 +121,25 @@ function App() {
         </div>
       )}
 
+      {newAchievements.length > 0 && (
+        <AchievementToast 
+          achievementIds={newAchievements} 
+          onComplete={handleAchievementToastComplete} 
+        />
+      )}
+
       {currentView === 'dashboard' ? (
-        <Dashboard progress={progress} onSelectExercise={handleSelectExercise} onRepeatIntro={() => setShowOnboarding(true)} />
+        <Dashboard 
+          progress={progress} 
+          onSelectExercise={handleSelectExercise} 
+          onShowStatistics={handleShowStatistics}
+          onShowAchievements={handleShowAchievements}
+          onRepeatIntro={() => setShowOnboarding(true)}
+        />
+      ) : currentView === 'statistics' ? (
+        <Statistics progress={progress} onBack={handleBack} />
+      ) : currentView === 'achievements' ? (
+        <Achievements onBack={handleBack} />
       ) : (
         <div className="px-4 py-8">
           {renderGame()}

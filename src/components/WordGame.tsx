@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { GameResult } from '../types';
+import { getDifficultyLabel } from '../utils/storage';
 
 interface WordGameProps {
   onComplete: (result: GameResult) => void;
   onBack: () => void;
+  difficulty: number;
 }
 
 type PuzzleType = 'anagram' | 'association' | 'wordChain';
@@ -17,25 +19,37 @@ interface WordPuzzle {
   explanation: string;
 }
 
-const ANAGRAMS = [
+const EASY_ANAGRAMS = [
+  { scrambled: 'AUMB', word: 'BAUM', hint: 'Wächst im Wald' },
+  { scrambled: 'DMON', word: 'MOND', hint: 'Scheint in der Nacht' },
+  { scrambled: 'NDWI', word: 'WIND', hint: 'Man spürt ihn draußen' },
+  { scrambled: 'OSNEN', word: 'SONNE', hint: 'Scheint am Tag' },
+];
+
+const MEDIUM_ANAGRAMS = [
   { scrambled: 'HCUS', word: 'SUCH', hint: 'Etwas suchen' },
   { scrambled: 'EILBE', word: 'LIEBE', hint: 'Ein starkes Gefühl' },
   { scrambled: 'AUMTR', word: 'TRAUM', hint: 'Passiert beim Schlafen' },
-  { scrambled: 'OSNEN', word: 'SONNE', hint: 'Scheint am Tag' },
-  { scrambled: 'DMON', word: 'MOND', hint: 'Scheint in der Nacht' },
-  { scrambled: 'AUMB', word: 'BAUM', hint: 'Wächst im Wald' },
   { scrambled: 'LBEMU', word: 'BLUME', hint: 'Wächst im Garten' },
   { scrambled: 'ASSREW', word: 'WASSER', hint: 'Zum Trinken' },
   { scrambled: 'EFEUR', word: 'FEUER', hint: 'Es ist heiß' },
-  { scrambled: 'NDWI', word: 'WIND', hint: 'Man spürt ihn draußen' },
 ];
 
-const ASSOCIATIONS = [
+const HARD_ANAGRAMS = [
+  { scrambled: 'KLNUDHE', word: 'DUNKELH', hint: 'Nacht', actual: 'DUNKEL' },
+  { scrambled: 'REFTIHEI', word: 'FREIHEIT', hint: 'Unabhängigkeit' },
+  { scrambled: 'CHKÜGL', word: 'GLÜCK', hint: 'Positives Gefühl' },
+  { scrambled: 'WEISSIHT', word: 'WEISHEIT', hint: 'Kluges Wissen' },
+  { scrambled: 'SCAHFNSFEWI', word: 'WISSENSCHAFT', hint: 'Forschung' },
+  { scrambled: 'GEILNDUG', word: 'GEDULDIG', hint: 'Ruhig warten können' },
+];
+
+const EASY_ASSOCIATIONS = [
   { 
-    words: ['Kaffee', 'Milch', 'Zucker'], 
-    answer: 'Tasse', 
-    wrong: ['Teller', 'Gabel', 'Messer'],
-    explanation: 'Alle gehören zum Kaffeetrinken'
+    words: ['Bett', 'Kissen', 'Decke'], 
+    answer: 'Schlaf', 
+    wrong: ['Arbeit', 'Sport', 'Essen'],
+    explanation: 'Alle gehören zum Schlafen'
   },
   { 
     words: ['Sonne', 'Sand', 'Meer'], 
@@ -43,17 +57,20 @@ const ASSOCIATIONS = [
     wrong: ['Berg', 'Wald', 'Stadt'],
     explanation: 'Alle findet man am Strand'
   },
+];
+
+const MEDIUM_ASSOCIATIONS = [
+  { 
+    words: ['Kaffee', 'Milch', 'Zucker'], 
+    answer: 'Tasse', 
+    wrong: ['Teller', 'Gabel', 'Messer'],
+    explanation: 'Alle gehören zum Kaffeetrinken'
+  },
   { 
     words: ['Stift', 'Papier', 'Radiergummi'], 
     answer: 'Schule', 
     wrong: ['Küche', 'Bad', 'Garten'],
     explanation: 'Alle braucht man in der Schule'
-  },
-  { 
-    words: ['Bett', 'Kissen', 'Decke'], 
-    answer: 'Schlaf', 
-    wrong: ['Arbeit', 'Sport', 'Essen'],
-    explanation: 'Alle gehören zum Schlafen'
   },
   { 
     words: ['Mehl', 'Eier', 'Butter'], 
@@ -63,14 +80,45 @@ const ASSOCIATIONS = [
   },
 ];
 
-const WORD_CHAINS = [
+const HARD_ASSOCIATIONS = [
+  { 
+    words: ['Demokratie', 'Wahlen', 'Parlament'], 
+    answer: 'Politik', 
+    wrong: ['Wirtschaft', 'Kunst', 'Sport'],
+    explanation: 'Alle gehören zur Politik'
+  },
+  { 
+    words: ['Hypothese', 'Experiment', 'Theorie'], 
+    answer: 'Wissenschaft', 
+    wrong: ['Kunst', 'Religion', 'Sport'],
+    explanation: 'Alle gehören zur Wissenschaft'
+  },
+  { 
+    words: ['Metapher', 'Reim', 'Strophe'], 
+    answer: 'Gedicht', 
+    wrong: ['Roman', 'Zeitung', 'Brief'],
+    explanation: 'Alle gehören zur Lyrik'
+  },
+];
+
+const EASY_WORD_CHAINS = [
   { 
     start: 'Apfel', 
-    chain: ['Baum', 'Wald', 'Tier'], 
+    chain: ['Baum', 'Wald'], 
     answer: 'Natur',
     wrong: ['Stadt', 'Auto', 'Computer'],
     explanation: 'Alles gehört zur Natur'
   },
+  { 
+    start: 'Fußball', 
+    chain: ['Tor', 'Mannschaft'], 
+    answer: 'Stadion',
+    wrong: ['Kino', 'Theater', 'Museum'],
+    explanation: 'Alles gehört zum Fußball'
+  },
+];
+
+const MEDIUM_WORD_CHAINS = [
   { 
     start: 'Musik', 
     chain: ['Instrument', 'Konzert', 'Künstler'], 
@@ -79,11 +127,28 @@ const WORD_CHAINS = [
     explanation: 'Alles gehört zur Musikaufführung'
   },
   { 
-    start: 'Fußball', 
-    chain: ['Tor', 'Mannschaft', 'Trainer'], 
-    answer: 'Stadion',
-    wrong: ['Kino', 'Theater', 'Museum'],
-    explanation: 'Alles gehört zum Fußball'
+    start: 'Wasser', 
+    chain: ['Fluss', 'Meer', 'Welle'], 
+    answer: 'Ozean',
+    wrong: ['Berg', 'Wüste', 'Wald'],
+    explanation: 'Alles gehört zum Gewässer'
+  },
+];
+
+const HARD_WORD_CHAINS = [
+  { 
+    start: 'Philosophie', 
+    chain: ['Denken', 'Logik', 'Erkenntnis', 'Wahrheit'], 
+    answer: 'Weisheit',
+    wrong: ['Kraft', 'Geschwindigkeit', 'Masse'],
+    explanation: 'Alles gehört zur Philosophie'
+  },
+  { 
+    start: 'Evolution', 
+    chain: ['Mutation', 'Selektion', 'Anpassung', 'Art'], 
+    answer: 'Spezies',
+    wrong: ['Planet', 'Stern', 'Galaxie'],
+    explanation: 'Alles gehört zur Evolutionstheorie'
   },
 ];
 
@@ -96,9 +161,19 @@ function shuffleArray<T>(array: T[]): T[] {
   return newArray;
 }
 
-function generateAnagramPuzzle(): WordPuzzle {
-  const anagram = ANAGRAMS[Math.floor(Math.random() * ANAGRAMS.length)];
-  const wrongWords = ANAGRAMS
+function generateAnagramPuzzle(difficulty: number): WordPuzzle {
+  let anagrams;
+  if (difficulty <= 3) {
+    anagrams = EASY_ANAGRAMS;
+  } else if (difficulty <= 6) {
+    anagrams = [...EASY_ANAGRAMS, ...MEDIUM_ANAGRAMS];
+  } else {
+    anagrams = [...MEDIUM_ANAGRAMS, ...HARD_ANAGRAMS];
+  }
+  
+  const anagram = anagrams[Math.floor(Math.random() * anagrams.length)];
+  const allAnagrams = [...EASY_ANAGRAMS, ...MEDIUM_ANAGRAMS, ...HARD_ANAGRAMS];
+  const wrongWords = allAnagrams
     .filter(a => a.word !== anagram.word)
     .map(a => a.word)
     .sort(() => Math.random() - 0.5)
@@ -116,8 +191,17 @@ function generateAnagramPuzzle(): WordPuzzle {
   };
 }
 
-function generateAssociationPuzzle(): WordPuzzle {
-  const assoc = ASSOCIATIONS[Math.floor(Math.random() * ASSOCIATIONS.length)];
+function generateAssociationPuzzle(difficulty: number): WordPuzzle {
+  let associations;
+  if (difficulty <= 3) {
+    associations = EASY_ASSOCIATIONS;
+  } else if (difficulty <= 6) {
+    associations = [...EASY_ASSOCIATIONS, ...MEDIUM_ASSOCIATIONS];
+  } else {
+    associations = [...MEDIUM_ASSOCIATIONS, ...HARD_ASSOCIATIONS];
+  }
+  
+  const assoc = associations[Math.floor(Math.random() * associations.length)];
   const options = shuffleArray([assoc.answer, ...assoc.wrong]);
   
   return {
@@ -129,8 +213,17 @@ function generateAssociationPuzzle(): WordPuzzle {
   };
 }
 
-function generateWordChainPuzzle(): WordPuzzle {
-  const chain = WORD_CHAINS[Math.floor(Math.random() * WORD_CHAINS.length)];
+function generateWordChainPuzzle(difficulty: number): WordPuzzle {
+  let chains;
+  if (difficulty <= 3) {
+    chains = EASY_WORD_CHAINS;
+  } else if (difficulty <= 6) {
+    chains = [...EASY_WORD_CHAINS, ...MEDIUM_WORD_CHAINS];
+  } else {
+    chains = [...MEDIUM_WORD_CHAINS, ...HARD_WORD_CHAINS];
+  }
+  
+  const chain = chains[Math.floor(Math.random() * chains.length)];
   const options = shuffleArray([chain.answer, ...chain.wrong]);
   
   return {
@@ -142,15 +235,20 @@ function generateWordChainPuzzle(): WordPuzzle {
   };
 }
 
-function generatePuzzle(): WordPuzzle {
-  const generators = [generateAnagramPuzzle, generateAssociationPuzzle, generateWordChainPuzzle];
+function generatePuzzle(difficulty: number): WordPuzzle {
+  const generators = [
+    () => generateAnagramPuzzle(difficulty),
+    () => generateAssociationPuzzle(difficulty),
+    () => generateWordChainPuzzle(difficulty)
+  ];
   return generators[Math.floor(Math.random() * generators.length)]();
 }
 
-export default function WordGame({ onComplete, onBack }: WordGameProps) {
+export default function WordGame({ onComplete, onBack, difficulty }: WordGameProps) {
   const [puzzles, setPuzzles] = useState<WordPuzzle[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
+  const [correctCount, setCorrectCount] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
@@ -158,13 +256,15 @@ export default function WordGame({ onComplete, onBack }: WordGameProps) {
   const [gameComplete, setGameComplete] = useState(false);
   const [showHint, setShowHint] = useState(false);
 
+  const numQuestions = Math.min(5 + Math.floor(difficulty / 2), 8);
+
   useEffect(() => {
     const newPuzzles: WordPuzzle[] = [];
-    for (let i = 0; i < 5; i++) {
-      newPuzzles.push(generatePuzzle());
+    for (let i = 0; i < numQuestions; i++) {
+      newPuzzles.push(generatePuzzle(difficulty));
     }
     setPuzzles(newPuzzles);
-  }, []);
+  }, [difficulty, numQuestions]);
 
   const handleAnswer = useCallback((answerIndex: number) => {
     if (showResult) return;
@@ -173,11 +273,13 @@ export default function WordGame({ onComplete, onBack }: WordGameProps) {
     const correct = answerIndex === puzzles[currentIndex].correctAnswer;
     setIsCorrect(correct);
     if (correct) {
-      const points = showHint ? 15 : 20;
-      setScore(prev => prev + points);
+      const basePoints = showHint ? 15 : 20;
+      const difficultyBonus = Math.floor(difficulty * 1.5);
+      setScore(prev => prev + basePoints + difficultyBonus);
+      setCorrectCount(prev => prev + 1);
     }
     setShowResult(true);
-  }, [showResult, puzzles, currentIndex, showHint]);
+  }, [showResult, puzzles, currentIndex, showHint, difficulty]);
 
   const handleNext = useCallback(() => {
     if (currentIndex < puzzles.length - 1) {
@@ -194,10 +296,12 @@ export default function WordGame({ onComplete, onBack }: WordGameProps) {
     onComplete({
       type: 'words',
       score,
-      maxScore: 100,
+      maxScore: numQuestions * (20 + Math.floor(difficulty * 1.5)),
       timeSpent: Math.floor((Date.now() - startTime) / 1000),
+      correctAnswers: correctCount,
+      totalQuestions: numQuestions,
     });
-  }, [onComplete, score, startTime]);
+  }, [onComplete, score, startTime, correctCount, numQuestions, difficulty]);
 
   if (puzzles.length === 0) {
     return (
@@ -208,6 +312,7 @@ export default function WordGame({ onComplete, onBack }: WordGameProps) {
   }
 
   if (gameComplete) {
+    const maxScore = numQuestions * (20 + Math.floor(difficulty * 1.5));
     return (
       <div className="card max-w-lg mx-auto text-center animate-scaleIn">
         <div className="text-6xl mb-4">📝</div>
@@ -216,7 +321,10 @@ export default function WordGame({ onComplete, onBack }: WordGameProps) {
         
         <div className="bg-gradient-to-r from-primary-100 to-accent-100 rounded-xl p-6 mb-6">
           <div className="text-4xl font-bold text-primary-600">{score}</div>
-          <div className="text-gray-600">von 100 Punkten</div>
+          <div className="text-gray-600">von {maxScore} Punkten</div>
+          <div className="text-sm text-gray-500 mt-2">
+            {correctCount}/{numQuestions} richtig • Stufe {difficulty} ({getDifficultyLabel(difficulty)})
+          </div>
         </div>
         
         <div className="flex gap-4 justify-center">
@@ -250,6 +358,9 @@ export default function WordGame({ onComplete, onBack }: WordGameProps) {
           <span>←</span> Zurück
         </button>
         <div className="flex items-center gap-4">
+          <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded-full text-xs font-medium">
+            Stufe {difficulty}
+          </span>
           <span className="text-sm text-gray-500">Frage {currentIndex + 1}/{puzzles.length}</span>
           <span className="bg-primary-100 text-primary-700 px-3 py-1 rounded-full text-sm font-semibold">
             {score} Punkte
