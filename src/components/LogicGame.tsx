@@ -4,6 +4,8 @@ import { getDifficultyLabel } from '../utils/storage';
 
 interface LogicGameProps {
   onComplete: (result: GameResult) => void;
+  onAnswer?: (correct: boolean) => void;
+  onScoreChange?: (score: number) => void;
   onBack: () => void;
   difficulty: number;
 }
@@ -187,11 +189,15 @@ function generatePuzzle(difficulty: number): Puzzle {
   return generators[Math.floor(Math.random() * generators.length)]();
 }
 
-export default function LogicGame({ onComplete, onBack, difficulty }: LogicGameProps) {
+export default function LogicGame({ onComplete, onBack, difficulty, onAnswer, onScoreChange }: LogicGameProps) {
   const [puzzles, setPuzzles] = useState<Puzzle[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
+
+  useEffect(() => {
+    onScoreChange?.(score);
+  }, [score, onScoreChange]);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
@@ -214,6 +220,7 @@ export default function LogicGame({ onComplete, onBack, difficulty }: LogicGameP
     setSelectedAnswer(answerIndex);
     const correct = answerIndex === puzzles[currentIndex].correctAnswer;
     setIsCorrect(correct);
+    onAnswer?.(correct);
     if (correct) {
       const basePoints = 20;
       const difficultyBonus = Math.floor(difficulty * 1.5);
@@ -221,7 +228,7 @@ export default function LogicGame({ onComplete, onBack, difficulty }: LogicGameP
       setCorrectCount(prev => prev + 1);
     }
     setShowResult(true);
-  }, [showResult, puzzles, currentIndex, difficulty]);
+  }, [showResult, puzzles, currentIndex, difficulty, onAnswer]);
 
   const handleNext = useCallback(() => {
     if (currentIndex < puzzles.length - 1) {

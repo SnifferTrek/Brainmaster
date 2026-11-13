@@ -4,6 +4,8 @@ import { getDifficultyLabel } from '../utils/storage';
 
 interface WordGameProps {
   onComplete: (result: GameResult) => void;
+  onAnswer?: (correct: boolean) => void;
+  onScoreChange?: (score: number) => void;
   onBack: () => void;
   difficulty: number;
 }
@@ -244,11 +246,15 @@ function generatePuzzle(difficulty: number): WordPuzzle {
   return generators[Math.floor(Math.random() * generators.length)]();
 }
 
-export default function WordGame({ onComplete, onBack, difficulty }: WordGameProps) {
+export default function WordGame({ onComplete, onBack, difficulty, onScoreChange }: WordGameProps) {
   const [puzzles, setPuzzles] = useState<WordPuzzle[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
+
+  useEffect(() => {
+    onScoreChange?.(score);
+  }, [score, onScoreChange]);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);

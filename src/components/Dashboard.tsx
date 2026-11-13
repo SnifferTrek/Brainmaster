@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { UserProgress, ExerciseType } from '../types';
 import { getPointsForNextLevel, getPointsForCurrentLevel, getTodayProgress, getDifficultyLabel, getUnlockedCount, ACHIEVEMENT_DEFINITIONS } from '../utils/storage';
 
@@ -5,6 +6,7 @@ interface DashboardProps {
   onRepeatIntro: () => void;
   progress: UserProgress;
   onSelectExercise: (type: ExerciseType) => void;
+  challengeCard?: ReactNode;
   onShowStatistics: () => void;
   onShowAchievements: () => void;
 }
@@ -44,7 +46,7 @@ const exercises = [
   },
 ];
 
-export default function Dashboard({ progress, onSelectExercise, onShowStatistics, onShowAchievements, onRepeatIntro }: DashboardProps) {
+export default function Dashboard({ progress, onSelectExercise, onShowStatistics, onShowAchievements, onRepeatIntro, challengeCard }: DashboardProps) {
   const todayProgress = getTodayProgress();
   const pointsForNext = getPointsForNextLevel(progress.level);
   const pointsForCurrent = getPointsForCurrentLevel(progress.level);
@@ -82,6 +84,8 @@ export default function Dashboard({ progress, onSelectExercise, onShowStatistics
           </button>
         </div>
       </div>
+
+      {challengeCard}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
