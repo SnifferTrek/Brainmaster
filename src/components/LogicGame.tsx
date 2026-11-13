@@ -3,6 +3,8 @@ import type { GameResult } from '../types';
 
 interface LogicGameProps {
   onComplete: (result: GameResult) => void;
+  onAnswer?: (correct: boolean) => void;
+  onScoreChange?: (score: number) => void;
   onBack: () => void;
 }
 
@@ -112,10 +114,14 @@ function generatePuzzle(): Puzzle {
   return generators[Math.floor(Math.random() * generators.length)]();
 }
 
-export default function LogicGame({ onComplete, onBack }: LogicGameProps) {
+export default function LogicGame({ onComplete, onBack, onAnswer, onScoreChange }: LogicGameProps) {
   const [puzzles, setPuzzles] = useState<Puzzle[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
+
+  useEffect(() => {
+    onScoreChange?.(score);
+  }, [score, onScoreChange]);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
@@ -136,11 +142,12 @@ export default function LogicGame({ onComplete, onBack }: LogicGameProps) {
     setSelectedAnswer(answerIndex);
     const correct = answerIndex === puzzles[currentIndex].correctAnswer;
     setIsCorrect(correct);
+    onAnswer?.(correct);
     if (correct) {
       setScore(prev => prev + 20);
     }
     setShowResult(true);
-  }, [showResult, puzzles, currentIndex]);
+  }, [showResult, puzzles, currentIndex, onAnswer]);
 
   const handleNext = useCallback(() => {
     if (currentIndex < puzzles.length - 1) {

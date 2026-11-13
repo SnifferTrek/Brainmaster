@@ -3,6 +3,8 @@ import type { GameResult } from '../types';
 
 interface MathGameProps {
   onComplete: (result: GameResult) => void;
+  onAnswer?: (correct: boolean) => void;
+  onScoreChange?: (score: number) => void;
   onBack: () => void;
 }
 
@@ -56,10 +58,14 @@ function generateProblem(difficulty: number): MathProblem {
   };
 }
 
-export default function MathGame({ onComplete, onBack }: MathGameProps) {
+export default function MathGame({ onComplete, onBack, onAnswer, onScoreChange }: MathGameProps) {
   const [problems, setProblems] = useState<MathProblem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
+
+  useEffect(() => {
+    onScoreChange?.(score);
+  }, [score, onScoreChange]);
   const [timeLeft, setTimeLeft] = useState(60);
   const [startTime] = useState(Date.now());
   const [gameComplete, setGameComplete] = useState(false);
@@ -105,6 +111,7 @@ export default function MathGame({ onComplete, onBack }: MathGameProps) {
     const isCorrect = selectedAnswer === currentProblem.answer;
     
     setShowFeedback(isCorrect ? 'correct' : 'wrong');
+    onAnswer?.(isCorrect);
     setAnswered(prev => prev + 1);
 
     if (isCorrect) {
@@ -128,7 +135,7 @@ export default function MathGame({ onComplete, onBack }: MathGameProps) {
         setCurrentIndex(prev => prev + 1);
       }
     }, 300);
-  }, [currentIndex, problems, streak, gameComplete, showFeedback]);
+  }, [currentIndex, problems, streak, gameComplete, showFeedback, onAnswer]);
 
   const handleFinish = useCallback(() => {
     onComplete({

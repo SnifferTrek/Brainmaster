@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { UserProgress, ExerciseType, GameResult } from './types';
 import { getProgress, updateProgressWithResult } from './utils/storage';
 import Dashboard from './components/Dashboard';
@@ -6,6 +6,12 @@ import LogicGame from './components/LogicGame';
 import MemoryGame from './components/MemoryGame';
 import MathGame from './components/MathGame';
 import WordGame from './components/WordGame';
+import ChallengeCard from './components/ChallengeCard';
+import {
+  getChallengeForDate, completeChallenge, isChallengeCompleted, getChallengeValue,
+  emptyLiveStats, type Challenge, type LiveStats,
+} from './utils/challenges';
+import { getTodayProgress } from './utils/storage';
 
 type View = 'dashboard' | ExerciseType;
 
@@ -15,16 +21,66 @@ function App() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [lastScore, setLastScore] = useState(0);
 
+  const [live, setLive] = useState<LiveStats>(emptyLiveStats());
+  const [toast, setToast] = useState<Challenge | null>(null);
+  const [challenge, setChallenge] = useState<Challenge>(() => getChallengeForDate());
+  const [completed, setCompleted] = useState(() => isChallengeCompleted(getChallengeForDate().id));
+  const sessionPoints = useRef(0);
+
   useEffect(() => {
     setProgress(getProgress());
   }, []);
 
+  useEffect(() => {
+    const t = setInterval(() => {
+      const c = getChallengeForDate();
+      setChallenge(prev => (prev.id === c.id ? prev : c));
+      setCompleted(isChallengeCompleted(c.id));
+    }, 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    if (completed) return;
+    const value = getChallengeValue(challenge, live, getTodayProgress().exercisesCompleted);
+    if (value >= challenge.target) {
+      const updated = completeChallenge(challenge);
+      if (updated) {
+        setProgress(updated);
+        setToast(challenge);
+        setTimeout(() => setToast(null), 5000);
+      }
+      setCompleted(true);
+    }
+  }, [live, challenge, completed, progress]);
+
   const handleSelectExercise = useCallback((type: ExerciseType) => {
+    setLive(prev => ({ ...emptyLiveStats(sessionPoints.current), memoryScore: prev.memoryScore, mathBest: prev.mathBest, logicBest: prev.logicBest }));
     setCurrentView(type);
+  }, []);
+
+  const handleAnswer = useCallback((type: 'math' | 'logic', correct: boolean) => {
+    setLive(prev => {
+      const run = correct ? (type === 'math' ? prev.mathRun : prev.logicRun) + 1 : 0;
+      return type === 'math'
+        ? { ...prev, mathRun: run, mathBest: Math.max(prev.mathBest, run) }
+        : { ...prev, logicRun: run, logicBest: Math.max(prev.logicBest, run) };
+    });
+  }, []);
+
+  const handleScoreChange = useCallback((score: number) => {
+    setLive(prev => (prev.currentScore === score ? prev : { ...prev, currentScore: score }));
   }, []);
 
   const handleGameComplete = useCallback((result: GameResult) => {
     const newProgress = updateProgressWithResult(result);
+    sessionPoints.current += result.score;
+    setLive(prev => ({
+      ...prev,
+      currentScore: 0,
+      sessionPoints: sessionPoints.current,
+      memoryScore: result.type === 'memory' ? Math.max(prev.memoryScore, result.score) : prev.memoryScore,
+    }));
     setProgress(newProgress);
     setLastScore(result.score);
     setShowCelebration(true);
@@ -42,13 +98,13 @@ function App() {
   const renderGame = () => {
     switch (currentView) {
       case 'logic':
-        return <LogicGame onComplete={handleGameComplete} onBack={handleBack} />;
+        return <LogicGame onComplete={handleGameComplete} onBack={handleBack} onAnswer={c => handleAnswer('logic', c)} onScoreChange={handleScoreChange} />;
       case 'memory':
         return <MemoryGame onComplete={handleGameComplete} onBack={handleBack} />;
       case 'math':
-        return <MathGame onComplete={handleGameComplete} onBack={handleBack} />;
+        return <MathGame onComplete={handleGameComplete} onBack={handleBack} onAnswer={c => handleAnswer('math', c)} onScoreChange={handleScoreChange} />;
       case 'words':
-        return <WordGame onComplete={handleGameComplete} onBack={handleBack} />;
+        return <WordGame onComplete={handleGameComplete} onBack={handleBack} onScoreChange={handleScoreChange} />;
       default:
         return null;
     }
@@ -56,6 +112,18 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50">
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] animate-scaleIn w-[92%] max-w-sm">
+          <div className="bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-2xl shadow-2xl p-4 flex items-center gap-3">
+            <div className="text-4xl">🏆</div>
+            <div>
+              <div className="font-bold">Challenge abgeschlossen!</div>
+              <div className="text-sm">{toast.description} · +{toast.bonus} Bonuspunkte</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showCelebration && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white rounded-3xl p-8 text-center shadow-2xl animate-scaleIn max-w-sm mx-4">
@@ -80,9 +148,27 @@ function App() {
       )}
 
       {currentView === 'dashboard' ? (
-        <Dashboard progress={progress} onSelectExercise={handleSelectExercise} />
+        <Dashboard
+          progress={progress}
+          onSelectExercise={handleSelectExercise}
+          challengeCard={
+            <ChallengeCard
+              challenge={challenge}
+              completed={completed}
+              value={getChallengeValue(challenge, live, getTodayProgress().exercisesCompleted)}
+            />
+          }
+        />
       ) : (
         <div className="px-4 py-8">
+          <div className="mb-4">
+            <ChallengeCard
+              compact
+              challenge={challenge}
+              completed={completed}
+              value={getChallengeValue(challenge, live, getTodayProgress().exercisesCompleted)}
+            />
+          </div>
           {renderGame()}
         </div>
       )}

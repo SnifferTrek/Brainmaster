@@ -3,6 +3,8 @@ import type { GameResult } from '../types';
 
 interface WordGameProps {
   onComplete: (result: GameResult) => void;
+  onAnswer?: (correct: boolean) => void;
+  onScoreChange?: (score: number) => void;
   onBack: () => void;
 }
 
@@ -147,10 +149,14 @@ function generatePuzzle(): WordPuzzle {
   return generators[Math.floor(Math.random() * generators.length)]();
 }
 
-export default function WordGame({ onComplete, onBack }: WordGameProps) {
+export default function WordGame({ onComplete, onBack, onScoreChange }: WordGameProps) {
   const [puzzles, setPuzzles] = useState<WordPuzzle[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
+
+  useEffect(() => {
+    onScoreChange?.(score);
+  }, [score, onScoreChange]);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
