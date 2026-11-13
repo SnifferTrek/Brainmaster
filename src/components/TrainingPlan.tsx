@@ -107,7 +107,7 @@ export default function TrainingPlan({ progress, onBack }: { progress: UserProgr
   void progress;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto px-4 py-8">
       <button onClick={onBack} className="text-gray-500 hover:text-gray-800 mb-4">← Zurück</button>
       <h1 className="text-3xl font-bold text-gray-800 mb-1">🎯 Trainingsplan</h1>
       <p className="text-gray-600 mb-6">Wähle dein Trainingsziel. Wir empfehlen dir täglich passende Übungen.</p>
