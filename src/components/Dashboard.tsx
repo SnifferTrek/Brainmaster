@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { getRecommendation } from '../utils/trainingPlan';
+import TrainingPlan, { TrainingPlanCard } from './TrainingPlan';
 import type { ReactNode } from 'react';
 import type { UserProgress, ExerciseType } from '../types';
 import { getPointsForNextLevel, getPointsForCurrentLevel, getTodayProgress, getDifficultyLabel, getUnlockedCount, ACHIEVEMENT_DEFINITIONS } from '../utils/storage';
@@ -47,12 +50,18 @@ const exercises = [
 ];
 
 export default function Dashboard({ progress, onSelectExercise, onShowStatistics, onShowAchievements, onRepeatIntro, challengeCard }: DashboardProps) {
+  const [showPlan, setShowPlan] = useState(false);
   const todayProgress = getTodayProgress();
+  const recommended = getRecommendation(progress).next;
   const pointsForNext = getPointsForNextLevel(progress.level);
   const pointsForCurrent = getPointsForCurrentLevel(progress.level);
   const levelProgress = ((progress.totalPoints - pointsForCurrent) / (pointsForNext - pointsForCurrent)) * 100;
   const unlockedAchievements = getUnlockedCount();
   const totalAchievements = ACHIEVEMENT_DEFINITIONS.length;
+
+  if (showPlan) {
+    return <TrainingPlan progress={progress} onBack={() => setShowPlan(false)} />;
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -81,6 +90,13 @@ export default function Dashboard({ progress, onSelectExercise, onShowStatistics
             <span className="bg-amber-200 text-amber-800 text-xs px-2 py-0.5 rounded-full">
               {unlockedAchievements}/{totalAchievements}
             </span>
+          </button>
+          <button
+            onClick={() => setShowPlan(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-full text-sm font-medium hover:bg-primary-700 transition-all shadow-sm"
+          >
+            <span>🎯</span>
+            Trainingsplan
           </button>
         </div>
       </div>
@@ -118,6 +134,13 @@ export default function Dashboard({ progress, onSelectExercise, onShowStatistics
         </div>
       </div>
 
+      <TrainingPlanCard
+        progress={progress}
+        exercises={exercises}
+        onSelectExercise={onSelectExercise}
+        onOpenPlan={() => setShowPlan(true)}
+      />
+
       {/* Level Progress */}
       <div className="card mb-8">
         <div className="flex items-center justify-between mb-2">
@@ -144,6 +167,7 @@ export default function Dashboard({ progress, onSelectExercise, onShowStatistics
           {exercises.map(exercise => {
             const isCompleted = todayProgress.exercisesCompleted.includes(exercise.type);
             const stats = progress.exerciseStats[exercise.type];
+            const isRecommended = recommended === exercise.type;
             const diffLevel = progress.difficulty[exercise.type].level;
             
             return (
@@ -151,7 +175,7 @@ export default function Dashboard({ progress, onSelectExercise, onShowStatistics
                 key={exercise.type}
                 onClick={() => onSelectExercise(exercise.type)}
                 className={`card-hover text-left relative overflow-hidden ${
-                  isCompleted ? 'ring-2 ring-success-400' : ''
+                  isRecommended ? 'ring-4 ring-primary-400 shadow-lg' : isCompleted ? 'ring-2 ring-success-400' : ''
                 }`}
               >
                 <div className={`absolute top-0 right-0 w-32 h-32 -mr-8 -mt-8 rounded-full opacity-20 bg-gradient-to-br ${exercise.color}`} />
@@ -165,7 +189,12 @@ export default function Dashboard({ progress, onSelectExercise, onShowStatistics
                       <span className="bg-amber-100 text-amber-700 text-xs px-2 py-1 rounded-full font-medium">
                         Stufe {diffLevel}
                       </span>
-                      {isCompleted && (
+                      {isRecommended && (
+                        <span className="bg-primary-100 text-primary-700 text-xs px-2 py-1 rounded-full font-medium animate-pulse">
+                          👉 Als Nächstes empfohlen
+                        </span>
+                      )}
+                      {isCompleted && !isRecommended && (
                         <span className="bg-success-100 text-success-700 text-xs px-2 py-1 rounded-full font-medium">
                           ✓ Heute gespielt
                         </span>

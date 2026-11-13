@@ -32,6 +32,7 @@ export interface ExerciseStats {
   played: number;
   bestScore: number;
   totalPoints: number;
+  totalMaxScore?: number;
 }
 
 export interface DailyProgress {

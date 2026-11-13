@@ -132,6 +132,7 @@ export function updateProgressWithResult(result: GameResult): UserProgress {
   const stats = progress.exerciseStats[result.type];
   stats.played += 1;
   stats.totalPoints += result.score;
+  stats.totalMaxScore = (stats.totalMaxScore || 0) + result.maxScore;
   if (result.score > stats.bestScore) {
     stats.bestScore = result.score;
   }
