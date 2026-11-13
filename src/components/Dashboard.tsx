@@ -1,4 +1,6 @@
 import type { UserProgress, ExerciseType } from '../types';
+import { useState } from 'react';
+import ProfileCard from './ProfileCard';
 import { getPointsForNextLevel, getPointsForCurrentLevel, getTodayProgress } from '../utils/storage';
 
 interface DashboardProps {
@@ -42,6 +44,7 @@ const exercises = [
 ];
 
 export default function Dashboard({ progress, onSelectExercise }: DashboardProps) {
+  const [showProfile, setShowProfile] = useState(false);
   const todayProgress = getTodayProgress();
   const pointsForNext = getPointsForNextLevel(progress.level);
   const pointsForCurrent = getPointsForCurrentLevel(progress.level);
@@ -55,6 +58,10 @@ export default function Dashboard({ progress, onSelectExercise }: DashboardProps
           🧠 Gehirntraining
         </h1>
         <p className="text-gray-600">Trainiere dein Gehirn täglich!</p>
+        <button onClick={() => setShowProfile(true)} className="mt-4 px-5 py-2 rounded-full bg-gradient-to-r from-primary-600 to-accent-600 text-white font-semibold shadow hover:opacity-90">
+          🎴 Mein Profil
+        </button>
+        {showProfile && <ProfileCard progress={progress} onClose={() => setShowProfile(false)} />}
       </div>
 
       {/* Stats Cards */}

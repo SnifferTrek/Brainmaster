@@ -12,6 +12,7 @@ export interface UserProgress {
     words: ExerciseStats;
   };
   dailyProgress: DailyProgress[];
+  trainingDays?: number;
 }
 
 export interface ExerciseStats {
