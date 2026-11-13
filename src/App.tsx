@@ -9,6 +9,9 @@ import WordGame from './components/WordGame';
 import Statistics from './components/Statistics';
 import Achievements from './components/Achievements';
 import AchievementToast from './components/AchievementToast';
+import Onboarding from './components/Onboarding';
+import { isOnboardingDone } from './utils/onboarding';
+import { saveProgress, getPointsForCurrentLevel } from './utils/storage';
 
 type View = 'dashboard' | 'statistics' | 'achievements' | ExerciseType;
 
@@ -18,6 +21,21 @@ function App() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [lastScore, setLastScore] = useState(0);
   const [newAchievements, setNewAchievements] = useState<AchievementId[]>([]);
+  const [showOnboarding, setShowOnboarding] = useState(!isOnboardingDone());
+
+  const handleOnboardingFinish = useCallback((startLevel: number | null) => {
+    if (startLevel && startLevel > 1) {
+      const p = getProgress();
+      if (p.totalPoints === 0) {
+        p.totalPoints = getPointsForCurrentLevel(startLevel);
+        p.level = startLevel;
+        saveProgress(p);
+      }
+    }
+    setProgress(getProgress());
+    setShowOnboarding(false);
+    setCurrentView('dashboard');
+  }, []);
 
   useEffect(() => {
     const loadedProgress = getProgress();
@@ -79,6 +97,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50">
+      {showOnboarding && <Onboarding onFinish={handleOnboardingFinish} />}
       {showCelebration && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white rounded-3xl p-8 text-center shadow-2xl animate-scaleIn max-w-sm mx-4">
@@ -115,6 +134,7 @@ function App() {
           onSelectExercise={handleSelectExercise} 
           onShowStatistics={handleShowStatistics}
           onShowAchievements={handleShowAchievements}
+          onRepeatIntro={() => setShowOnboarding(true)}
         />
       ) : currentView === 'statistics' ? (
         <Statistics progress={progress} onBack={handleBack} />

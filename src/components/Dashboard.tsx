@@ -2,6 +2,7 @@ import type { UserProgress, ExerciseType } from '../types';
 import { getPointsForNextLevel, getPointsForCurrentLevel, getTodayProgress, getDifficultyLabel, getUnlockedCount, ACHIEVEMENT_DEFINITIONS } from '../utils/storage';
 
 interface DashboardProps {
+  onRepeatIntro: () => void;
   progress: UserProgress;
   onSelectExercise: (type: ExerciseType) => void;
   onShowStatistics: () => void;
@@ -43,7 +44,7 @@ const exercises = [
   },
 ];
 
-export default function Dashboard({ progress, onSelectExercise, onShowStatistics, onShowAchievements }: DashboardProps) {
+export default function Dashboard({ progress, onSelectExercise, onShowStatistics, onShowAchievements, onRepeatIntro }: DashboardProps) {
   const todayProgress = getTodayProgress();
   const pointsForNext = getPointsForNextLevel(progress.level);
   const pointsForCurrent = getPointsForCurrentLevel(progress.level);
@@ -237,6 +238,7 @@ export default function Dashboard({ progress, onSelectExercise, onShowStatistics
       {/* Footer */}
       <footer className="mt-12 text-center text-gray-400 text-sm">
         <p>Trainiere täglich für beste Ergebnisse! 💪</p>
+        <button onClick={onRepeatIntro} className="mt-2 underline hover:text-gray-600">Einführung wiederholen</button>
       </footer>
     </div>
   );
