@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { GameResult } from '../types';
+import { playCorrect, playWrong, playGameStart } from '../utils/sounds';
 
 interface WordGameProps {
   onComplete: (result: GameResult) => void;
@@ -159,6 +160,7 @@ export default function WordGame({ onComplete, onBack }: WordGameProps) {
   const [showHint, setShowHint] = useState(false);
 
   useEffect(() => {
+    playGameStart();
     const newPuzzles: WordPuzzle[] = [];
     for (let i = 0; i < 5; i++) {
       newPuzzles.push(generatePuzzle());
@@ -172,6 +174,7 @@ export default function WordGame({ onComplete, onBack }: WordGameProps) {
     setSelectedAnswer(answerIndex);
     const correct = answerIndex === puzzles[currentIndex].correctAnswer;
     setIsCorrect(correct);
+    if (correct) playCorrect(); else playWrong();
     if (correct) {
       const points = showHint ? 15 : 20;
       setScore(prev => prev + points);

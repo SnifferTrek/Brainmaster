@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { GameResult } from '../types';
+import { playCorrect, playWrong, playGameStart } from '../utils/sounds';
 
 interface MemoryGameProps {
   onComplete: (result: GameResult) => void;
@@ -34,6 +35,7 @@ export default function MemoryGame({ onComplete, onBack }: MemoryGameProps) {
   const [isChecking, setIsChecking] = useState(false);
 
   useEffect(() => {
+    playGameStart();
     const selectedEmojis = shuffleArray(EMOJIS).slice(0, 6);
     const cardPairs = [...selectedEmojis, ...selectedEmojis];
     const shuffledCards = shuffleArray(cardPairs).map((emoji, index) => ({
@@ -69,6 +71,7 @@ export default function MemoryGame({ onComplete, onBack }: MemoryGameProps) {
       const secondCard = newCards.find(c => c.id === second)!;
 
       if (firstCard.emoji === secondCard.emoji) {
+        playCorrect();
         setTimeout(() => {
           setCards(prev =>
             prev.map(c =>
@@ -88,6 +91,7 @@ export default function MemoryGame({ onComplete, onBack }: MemoryGameProps) {
           setIsChecking(false);
         }, 500);
       } else {
+        playWrong();
         setTimeout(() => {
           setCards(prev =>
             prev.map(c =>

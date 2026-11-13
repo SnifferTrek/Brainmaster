@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { GameResult } from '../types';
+import { playCorrect, playWrong, playGameStart } from '../utils/sounds';
 
 interface MathGameProps {
   onComplete: (result: GameResult) => void;
@@ -69,6 +70,7 @@ export default function MathGame({ onComplete, onBack }: MathGameProps) {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    playGameStart();
     const initialProblems: MathProblem[] = [];
     for (let i = 0; i < 20; i++) {
       initialProblems.push(generateProblem(Math.floor(i / 5)));
@@ -105,6 +107,7 @@ export default function MathGame({ onComplete, onBack }: MathGameProps) {
     const isCorrect = selectedAnswer === currentProblem.answer;
     
     setShowFeedback(isCorrect ? 'correct' : 'wrong');
+    if (isCorrect) playCorrect(); else playWrong();
     setAnswered(prev => prev + 1);
 
     if (isCorrect) {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { GameResult } from '../types';
+import { playCorrect, playWrong, playGameStart } from '../utils/sounds';
 
 interface LogicGameProps {
   onComplete: (result: GameResult) => void;
@@ -123,6 +124,7 @@ export default function LogicGame({ onComplete, onBack }: LogicGameProps) {
   const [gameComplete, setGameComplete] = useState(false);
 
   useEffect(() => {
+    playGameStart();
     const newPuzzles: Puzzle[] = [];
     for (let i = 0; i < 5; i++) {
       newPuzzles.push(generatePuzzle());
@@ -136,6 +138,7 @@ export default function LogicGame({ onComplete, onBack }: LogicGameProps) {
     setSelectedAnswer(answerIndex);
     const correct = answerIndex === puzzles[currentIndex].correctAnswer;
     setIsCorrect(correct);
+    if (correct) playCorrect(); else playWrong();
     if (correct) {
       setScore(prev => prev + 20);
     }
