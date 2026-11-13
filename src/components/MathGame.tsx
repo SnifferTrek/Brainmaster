@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { GameResult } from '../types';
+import { playCorrect, playWrong, playGameStart } from '../utils/sounds';
 import { getDifficultyLabel } from '../utils/storage';
 
 interface MathGameProps {
@@ -95,6 +96,7 @@ export default function MathGame({ onComplete, onBack, difficulty, onAnswer, onS
   const gameTime = Math.max(45, 60 - (difficulty * 2));
 
   useEffect(() => {
+    playGameStart();
     const initialProblems: MathProblem[] = [];
     for (let i = 0; i < 30; i++) {
       initialProblems.push(generateProblem(difficulty));
@@ -132,6 +134,7 @@ export default function MathGame({ onComplete, onBack, difficulty, onAnswer, onS
     const isCorrect = selectedAnswer === currentProblem.answer;
     
     setShowFeedback(isCorrect ? 'correct' : 'wrong');
+    if (isCorrect) playCorrect(); else playWrong();
     onAnswer?.(isCorrect);
     setAnswered(prev => prev + 1);
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { GameResult } from '../types';
+import { playCorrect, playWrong, playGameStart } from '../utils/sounds';
 import { getDifficultyLabel } from '../utils/storage';
 
 interface LogicGameProps {
@@ -207,6 +208,7 @@ export default function LogicGame({ onComplete, onBack, difficulty, onAnswer, on
   const numQuestions = Math.min(5 + Math.floor(difficulty / 2), 8);
 
   useEffect(() => {
+    playGameStart();
     const newPuzzles: Puzzle[] = [];
     for (let i = 0; i < numQuestions; i++) {
       newPuzzles.push(generatePuzzle(difficulty));
@@ -220,6 +222,7 @@ export default function LogicGame({ onComplete, onBack, difficulty, onAnswer, on
     setSelectedAnswer(answerIndex);
     const correct = answerIndex === puzzles[currentIndex].correctAnswer;
     setIsCorrect(correct);
+    if (correct) playCorrect(); else playWrong();
     onAnswer?.(correct);
     if (correct) {
       const basePoints = 20;

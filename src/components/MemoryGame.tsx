@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { GameResult } from '../types';
+import { playCorrect, playWrong, playGameStart } from '../utils/sounds';
 import { getDifficultyLabel } from '../utils/storage';
 
 interface MemoryGameProps {
@@ -41,6 +42,7 @@ export default function MemoryGame({ onComplete, onBack, difficulty }: MemoryGam
   const flipBackTime = Math.max(1200 - (difficulty * 80), 400);
 
   useEffect(() => {
+    playGameStart();
     const selectedEmojis = shuffleArray(EMOJIS).slice(0, numPairs);
     const cardPairs = [...selectedEmojis, ...selectedEmojis];
     const shuffledCards = shuffleArray(cardPairs).map((emoji, index) => ({
@@ -83,6 +85,7 @@ export default function MemoryGame({ onComplete, onBack, difficulty }: MemoryGam
       const secondCard = newCards.find(c => c.id === second)!;
 
       if (firstCard.emoji === secondCard.emoji) {
+        playCorrect();
         setTimeout(() => {
           setCards(prev =>
             prev.map(c =>
@@ -102,6 +105,7 @@ export default function MemoryGame({ onComplete, onBack, difficulty }: MemoryGam
           setIsChecking(false);
         }, 500);
       } else {
+        playWrong();
         setTimeout(() => {
           setCards(prev =>
             prev.map(c =>

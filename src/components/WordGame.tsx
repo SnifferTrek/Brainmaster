@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { GameResult } from '../types';
+import { playCorrect, playWrong, playGameStart } from '../utils/sounds';
 import { getDifficultyLabel } from '../utils/storage';
 
 interface WordGameProps {
@@ -265,6 +266,7 @@ export default function WordGame({ onComplete, onBack, difficulty, onScoreChange
   const numQuestions = Math.min(5 + Math.floor(difficulty / 2), 8);
 
   useEffect(() => {
+    playGameStart();
     const newPuzzles: WordPuzzle[] = [];
     for (let i = 0; i < numQuestions; i++) {
       newPuzzles.push(generatePuzzle(difficulty));
@@ -278,6 +280,7 @@ export default function WordGame({ onComplete, onBack, difficulty, onScoreChange
     setSelectedAnswer(answerIndex);
     const correct = answerIndex === puzzles[currentIndex].correctAnswer;
     setIsCorrect(correct);
+    if (correct) playCorrect(); else playWrong();
     if (correct) {
       const basePoints = showHint ? 15 : 20;
       const difficultyBonus = Math.floor(difficulty * 1.5);

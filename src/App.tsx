@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { UserProgress, ExerciseType, GameResult, AchievementId } from './types';
-import { getProgress, updateProgressWithResult, getDifficulty, checkAndUnlockAchievements } from './utils/storage';
+import { playLevelUp, playAchievement, playDailyChallengeComplete } from './utils/sounds';
+import SoundToggle from './components/SoundToggle';
+import { getProgress, getTodayProgress, updateProgressWithResult, getDifficulty, checkAndUnlockAchievements } from './utils/storage';
 import Dashboard from './components/Dashboard';
 import LogicGame from './components/LogicGame';
 import MemoryGame from './components/MemoryGame';
@@ -16,7 +18,7 @@ import Achievements from './components/Achievements';
 import AchievementToast from './components/AchievementToast';
 import Onboarding from './components/Onboarding';
 import { isOnboardingDone } from './utils/onboarding';
-import { saveProgress, getPointsForCurrentLevel, getTodayProgress } from './utils/storage';
+import { saveProgress, getPointsForCurrentLevel } from './utils/storage';
 
 type View = 'dashboard' | 'statistics' | 'achievements' | ExerciseType;
 
@@ -104,7 +106,13 @@ function App() {
   }, []);
 
   const handleGameComplete = useCallback((result: GameResult) => {
+    const oldLevel = getProgress().level;
+    const doneBefore = getTodayProgress().exercisesCompleted.length;
     const newProgress = updateProgressWithResult(result);
+    const allDone = doneBefore < 4 && getTodayProgress().exercisesCompleted.length >= 4;
+    if (newProgress.level > oldLevel) playLevelUp();
+    else if (allDone) playDailyChallengeComplete();
+    else if (result.score >= result.maxScore) playAchievement();
     sessionPoints.current += result.score;
     setLive(prev => ({
       ...prev,
@@ -164,6 +172,7 @@ function App() {
         </div>
       )}
 
+      <SoundToggle />
       {showOnboarding && <Onboarding onFinish={handleOnboardingFinish} />}
       {showCelebration && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
