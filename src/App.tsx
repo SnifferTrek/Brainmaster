@@ -8,6 +8,7 @@ import LogicGame from './components/LogicGame';
 import MemoryGame from './components/MemoryGame';
 import MathGame from './components/MathGame';
 import WordGame from './components/WordGame';
+import IQTest from './iq/IQTest';
 import { NameModal, ShareModal, CompareModal, FriendsModal } from './components/Social';
 import { getProfile, createProfile, buildStats, createShareLink, decodeShare, getFriends, saveFriend, removeFriend } from './utils/social';
 import type { Profile, SharedStats } from './utils/social';
@@ -23,7 +24,7 @@ import Onboarding from './components/Onboarding';
 import { isOnboardingDone } from './utils/onboarding';
 import { saveProgress, getPointsForCurrentLevel } from './utils/storage';
 
-type View = 'dashboard' | 'statistics' | 'achievements' | ExerciseType;
+type View = 'dashboard' | 'statistics' | 'achievements' | 'iq' | ExerciseType;
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -201,6 +202,8 @@ function App() {
 
   const renderGame = () => {
     switch (currentView) {
+      case 'iq':
+        return <IQTest onBack={handleBack} />;
       case 'logic':
         return <LogicGame onComplete={handleGameComplete} onBack={handleBack} difficulty={getDifficulty('logic')} onAnswer={c => handleAnswer('logic', c)} onScoreChange={handleScoreChange} />;
       case 'memory':
@@ -288,6 +291,7 @@ function App() {
           onShare={handleShare}
           friendCount={friends.length}
           onShowFriends={() => setModal('friends')}
+          onStartIQ={() => setCurrentView('iq')}
           challengeCard={
             <ChallengeCard
               challenge={challenge}
