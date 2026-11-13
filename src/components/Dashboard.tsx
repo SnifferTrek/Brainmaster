@@ -4,6 +4,9 @@ import { getPointsForNextLevel, getPointsForCurrentLevel, getTodayProgress } fro
 interface DashboardProps {
   progress: UserProgress;
   onSelectExercise: (type: ExerciseType) => void;
+  onShare: () => void;
+  onShowFriends: () => void;
+  friendCount: number;
 }
 
 const exercises = [
@@ -41,7 +44,7 @@ const exercises = [
   },
 ];
 
-export default function Dashboard({ progress, onSelectExercise }: DashboardProps) {
+export default function Dashboard({ progress, onSelectExercise, onShare, onShowFriends, friendCount }: DashboardProps) {
   const todayProgress = getTodayProgress();
   const pointsForNext = getPointsForNextLevel(progress.level);
   const pointsForCurrent = getPointsForCurrentLevel(progress.level);
@@ -55,6 +58,12 @@ export default function Dashboard({ progress, onSelectExercise }: DashboardProps
           🧠 Gehirntraining
         </h1>
         <p className="text-gray-600">Trainiere dein Gehirn täglich!</p>
+        <div className="flex justify-center gap-2 mt-4">
+          <button onClick={onShare} className="px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-medium">📤 Teilen</button>
+          {friendCount > 0 && (
+            <button onClick={onShowFriends} className="px-4 py-2 rounded-xl bg-white border text-sm font-medium">👥 Freunde ({friendCount})</button>
+          )}
+        </div>
       </div>
 
       {/* Stats Cards */}
