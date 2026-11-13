@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { GameResult } from '../types';
+import { getDifficultyLabel } from '../utils/storage';
 
 interface MathGameProps {
   onComplete: (result: GameResult) => void;
   onAnswer?: (correct: boolean) => void;
   onScoreChange?: (score: number) => void;
   onBack: () => void;
+  difficulty: number;
 }
 
 interface MathProblem {
@@ -15,12 +17,18 @@ interface MathProblem {
 }
 
 function generateProblem(difficulty: number): MathProblem {
-  const operations = ['+', '-', '×'];
+  const operations = difficulty <= 3 
+    ? ['+', '-'] 
+    : difficulty <= 6 
+      ? ['+', '-', '×'] 
+      : ['+', '-', '×', '÷'];
+  
   const operation = operations[Math.floor(Math.random() * operations.length)];
   
   let a: number, b: number, answer: number;
   
-  const maxNum = 10 + difficulty * 5;
+  const baseMax = 5 + difficulty * 5;
+  const maxNum = Math.min(baseMax, 100);
   
   switch (operation) {
     case '+':
@@ -29,22 +37,31 @@ function generateProblem(difficulty: number): MathProblem {
       answer = a + b;
       break;
     case '-':
-      a = Math.floor(Math.random() * maxNum) + 5;
+      a = Math.floor(Math.random() * maxNum) + Math.floor(maxNum / 2);
       b = Math.floor(Math.random() * Math.min(a, maxNum)) + 1;
       answer = a - b;
       break;
     case '×':
-      a = Math.floor(Math.random() * Math.min(12, maxNum / 2)) + 1;
-      b = Math.floor(Math.random() * Math.min(12, maxNum / 2)) + 1;
+      const multMax = Math.min(5 + difficulty, 15);
+      a = Math.floor(Math.random() * multMax) + 2;
+      b = Math.floor(Math.random() * multMax) + 2;
       answer = a * b;
+      break;
+    case '÷':
+      const divMax = Math.min(3 + difficulty, 12);
+      b = Math.floor(Math.random() * divMax) + 2;
+      answer = Math.floor(Math.random() * divMax) + 2;
+      a = b * answer;
       break;
     default:
       a = 1; b = 1; answer = 2;
   }
   
   const options = [answer];
+  const spread = Math.max(5, Math.floor(answer * 0.3));
+  
   while (options.length < 4) {
-    const offset = Math.floor(Math.random() * 10) - 5;
+    const offset = Math.floor(Math.random() * spread * 2) - spread;
     const wrong = answer + offset;
     if (wrong !== answer && wrong >= 0 && !options.includes(wrong)) {
       options.push(wrong);
@@ -58,10 +75,11 @@ function generateProblem(difficulty: number): MathProblem {
   };
 }
 
-export default function MathGame({ onComplete, onBack, onAnswer, onScoreChange }: MathGameProps) {
+export default function MathGame({ onComplete, onBack, difficulty, onAnswer, onScoreChange }: MathGameProps) {
   const [problems, setProblems] = useState<MathProblem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
+  const [correctCount, setCorrectCount] = useState(0);
 
   useEffect(() => {
     onScoreChange?.(score);
@@ -74,12 +92,15 @@ export default function MathGame({ onComplete, onBack, onAnswer, onScoreChange }
   const [answered, setAnswered] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const gameTime = Math.max(45, 60 - (difficulty * 2));
+
   useEffect(() => {
     const initialProblems: MathProblem[] = [];
-    for (let i = 0; i < 20; i++) {
-      initialProblems.push(generateProblem(Math.floor(i / 5)));
+    for (let i = 0; i < 30; i++) {
+      initialProblems.push(generateProblem(difficulty));
     }
     setProblems(initialProblems);
+    setTimeLeft(gameTime);
 
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
@@ -96,7 +117,7 @@ export default function MathGame({ onComplete, onBack, onAnswer, onScoreChange }
         clearInterval(timerRef.current);
       }
     };
-  }, []);
+  }, [difficulty, gameTime]);
 
   useEffect(() => {
     if (gameComplete && timerRef.current) {
@@ -115,9 +136,11 @@ export default function MathGame({ onComplete, onBack, onAnswer, onScoreChange }
     setAnswered(prev => prev + 1);
 
     if (isCorrect) {
+      const basePoints = 8 + Math.floor(difficulty * 1.2);
       const streakBonus = Math.min(streak, 5) * 2;
-      setScore(prev => prev + 10 + streakBonus);
+      setScore(prev => prev + basePoints + streakBonus);
       setStreak(prev => prev + 1);
+      setCorrectCount(prev => prev + 1);
     } else {
       setStreak(0);
     }
@@ -129,22 +152,24 @@ export default function MathGame({ onComplete, onBack, onAnswer, onScoreChange }
       } else {
         const newProblems = [...problems];
         for (let i = 0; i < 10; i++) {
-          newProblems.push(generateProblem(Math.floor((currentIndex + i) / 5)));
+          newProblems.push(generateProblem(difficulty));
         }
         setProblems(newProblems);
         setCurrentIndex(prev => prev + 1);
       }
-    }, 300);
-  }, [currentIndex, problems, streak, gameComplete, showFeedback, onAnswer]);
+    }, 250);
+  }, [currentIndex, problems, streak, gameComplete, showFeedback, difficulty, onAnswer]);
 
   const handleFinish = useCallback(() => {
     onComplete({
       type: 'math',
-      score: Math.min(score, 150),
-      maxScore: 150,
+      score,
+      maxScore: answered * (8 + Math.floor(difficulty * 1.2) + 10),
       timeSpent: Math.floor((Date.now() - startTime) / 1000),
+      correctAnswers: correctCount,
+      totalQuestions: answered,
     });
-  }, [onComplete, score, startTime]);
+  }, [onComplete, score, startTime, correctCount, answered, difficulty]);
 
   if (problems.length === 0) {
     return (
@@ -155,7 +180,7 @@ export default function MathGame({ onComplete, onBack, onAnswer, onScoreChange }
   }
 
   if (gameComplete) {
-    const finalScore = Math.min(score, 150);
+    const successRate = answered > 0 ? Math.round((correctCount / answered) * 100) : 0;
     return (
       <div className="card max-w-lg mx-auto text-center animate-scaleIn">
         <div className="text-6xl mb-4">🔢</div>
@@ -163,8 +188,11 @@ export default function MathGame({ onComplete, onBack, onAnswer, onScoreChange }
         <p className="text-gray-600 mb-4">Du hast {answered} Aufgaben bearbeitet</p>
         
         <div className="bg-gradient-to-r from-primary-100 to-accent-100 rounded-xl p-6 mb-6">
-          <div className="text-4xl font-bold text-primary-600">{finalScore}</div>
-          <div className="text-gray-600">von 150 Punkten</div>
+          <div className="text-4xl font-bold text-primary-600">{score}</div>
+          <div className="text-gray-600">Punkte</div>
+          <div className="text-sm text-gray-500 mt-2">
+            {correctCount}/{answered} richtig ({successRate}%) • Stufe {difficulty} ({getDifficultyLabel(difficulty)})
+          </div>
         </div>
         
         <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
@@ -173,10 +201,8 @@ export default function MathGame({ onComplete, onBack, onAnswer, onScoreChange }
             <div className="text-xl font-bold text-gray-700">{answered}</div>
           </div>
           <div className="bg-gray-50 rounded-lg p-3">
-            <div className="text-gray-500">Punkte/Aufgabe</div>
-            <div className="text-xl font-bold text-gray-700">
-              {answered > 0 ? (score / answered).toFixed(1) : '0'}
-            </div>
+            <div className="text-gray-500">Erfolgsrate</div>
+            <div className="text-xl font-bold text-gray-700">{successRate}%</div>
           </div>
         </div>
         
@@ -193,7 +219,7 @@ export default function MathGame({ onComplete, onBack, onAnswer, onScoreChange }
   }
 
   const currentProblem = problems[currentIndex];
-  const progressPercent = (timeLeft / 60) * 100;
+  const progressPercent = (timeLeft / gameTime) * 100;
 
   return (
     <div className="max-w-lg mx-auto">
@@ -202,6 +228,9 @@ export default function MathGame({ onComplete, onBack, onAnswer, onScoreChange }
           <span>←</span> Zurück
         </button>
         <div className="flex items-center gap-4">
+          <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded-full text-xs font-medium">
+            Stufe {difficulty}
+          </span>
           <span className={`px-3 py-1 rounded-full text-sm font-bold ${
             timeLeft <= 10 ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-gray-100 text-gray-700'
           }`}>
