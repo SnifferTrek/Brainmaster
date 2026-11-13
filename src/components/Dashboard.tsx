@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { getRecommendation } from '../utils/trainingPlan';
+import TrainingPlan, { TrainingPlanCard } from './TrainingPlan';
 import type { UserProgress, ExerciseType } from '../types';
 import { getPointsForNextLevel, getPointsForCurrentLevel, getTodayProgress } from '../utils/storage';
 
@@ -42,10 +45,16 @@ const exercises = [
 ];
 
 export default function Dashboard({ progress, onSelectExercise }: DashboardProps) {
+  const [showPlan, setShowPlan] = useState(false);
   const todayProgress = getTodayProgress();
+  const recommended = getRecommendation(progress).next;
   const pointsForNext = getPointsForNextLevel(progress.level);
   const pointsForCurrent = getPointsForCurrentLevel(progress.level);
   const levelProgress = ((progress.totalPoints - pointsForCurrent) / (pointsForNext - pointsForCurrent)) * 100;
+
+  if (showPlan) {
+    return <TrainingPlan progress={progress} onBack={() => setShowPlan(false)} />;
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -55,6 +64,12 @@ export default function Dashboard({ progress, onSelectExercise }: DashboardProps
           🧠 Gehirntraining
         </h1>
         <p className="text-gray-600">Trainiere dein Gehirn täglich!</p>
+        <button
+          onClick={() => setShowPlan(true)}
+          className="mt-4 px-5 py-2 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700"
+        >
+          🎯 Trainingsplan
+        </button>
       </div>
 
       {/* Stats Cards */}
@@ -88,6 +103,13 @@ export default function Dashboard({ progress, onSelectExercise }: DashboardProps
         </div>
       </div>
 
+      <TrainingPlanCard
+        progress={progress}
+        exercises={exercises}
+        onSelectExercise={onSelectExercise}
+        onOpenPlan={() => setShowPlan(true)}
+      />
+
       {/* Level Progress */}
       <div className="card mb-8">
         <div className="flex items-center justify-between mb-2">
@@ -114,13 +136,14 @@ export default function Dashboard({ progress, onSelectExercise }: DashboardProps
           {exercises.map(exercise => {
             const isCompleted = todayProgress.exercisesCompleted.includes(exercise.type);
             const stats = progress.exerciseStats[exercise.type];
+            const isRecommended = recommended === exercise.type;
             
             return (
               <button
                 key={exercise.type}
                 onClick={() => onSelectExercise(exercise.type)}
                 className={`card-hover text-left relative overflow-hidden ${
-                  isCompleted ? 'ring-2 ring-success-400' : ''
+                  isRecommended ? 'ring-4 ring-primary-400 shadow-lg' : isCompleted ? 'ring-2 ring-success-400' : ''
                 }`}
               >
                 <div className={`absolute top-0 right-0 w-32 h-32 -mr-8 -mt-8 rounded-full opacity-20 bg-gradient-to-br ${exercise.color}`} />
@@ -130,7 +153,12 @@ export default function Dashboard({ progress, onSelectExercise }: DashboardProps
                     <div className={`w-12 h-12 rounded-xl ${exercise.bgColor} flex items-center justify-center text-2xl`}>
                       {exercise.emoji}
                     </div>
-                    {isCompleted && (
+                    {isRecommended && (
+                      <span className="bg-primary-100 text-primary-700 text-xs px-2 py-1 rounded-full font-medium animate-pulse">
+                        👉 Als Nächstes empfohlen
+                      </span>
+                    )}
+                    {isCompleted && !isRecommended && (
                       <span className="bg-success-100 text-success-700 text-xs px-2 py-1 rounded-full font-medium">
                         ✓ Heute gespielt
                       </span>
