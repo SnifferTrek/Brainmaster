@@ -168,6 +168,23 @@ export default function Dashboard({ progress, onSelectExercise, onStartIQ, onSho
       <footer className="text-center text-gray-400 text-sm">
         <button onClick={onRepeatIntro} className="underline hover:text-gray-600">Einführung wiederholen</button>
       </footer>
+
+      <section className="mt-8 card border border-red-100">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-2">Einstellungen</h2>
+        <p className="text-sm text-gray-500 mb-3">Löscht alle lokalen Daten (Fortschritt, Profil, Einstellungen) und startet die App wie beim ersten Mal, inklusive Onboarding.</p>
+        <button
+          onClick={() => {
+            if (window.confirm('Wirklich alle Daten löschen und als Erstbenutzer neu starten?')) {
+              localStorage.clear();
+              sessionStorage.clear();
+              window.location.reload();
+            }
+          }}
+          className="px-4 py-2 rounded-xl bg-red-50 text-red-700 border border-red-200 text-sm font-medium hover:bg-red-100"
+        >
+          🔄 Als Erstbenutzer starten
+        </button>
+      </section>
     </div>
   );
 }
