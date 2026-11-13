@@ -4,6 +4,7 @@ import { getPointsForNextLevel, getPointsForCurrentLevel, getTodayProgress } fro
 interface DashboardProps {
   progress: UserProgress;
   onSelectExercise: (type: ExerciseType) => void;
+  onStartIQ: () => void;
 }
 
 const exercises = [
@@ -41,7 +42,7 @@ const exercises = [
   },
 ];
 
-export default function Dashboard({ progress, onSelectExercise }: DashboardProps) {
+export default function Dashboard({ progress, onSelectExercise, onStartIQ }: DashboardProps) {
   const todayProgress = getTodayProgress();
   const pointsForNext = getPointsForNextLevel(progress.level);
   const pointsForCurrent = getPointsForCurrentLevel(progress.level);
@@ -106,6 +107,18 @@ export default function Dashboard({ progress, onSelectExercise }: DashboardProps
           Noch {pointsForNext - progress.totalPoints} Punkte bis Level {progress.level + 1}
         </p>
       </div>
+
+      <button
+        onClick={onStartIQ}
+        className="w-full mb-8 p-5 rounded-2xl bg-gradient-to-r from-blue-900 to-indigo-700 text-white text-left shadow-lg hover:shadow-xl transition-shadow flex items-center gap-4"
+      >
+        <span className="text-4xl">🧠</span>
+        <span className="flex-1">
+          <span className="block text-xl font-bold">🧠 IQ-Test</span>
+          <span className="block text-sm text-blue-100">30 Fragen · ca. 15–20 Min. · Geschätzter IQ mit Profil-Analyse</span>
+        </span>
+        <span className="text-2xl">→</span>
+      </button>
 
       {/* Exercise Selection */}
       <div className="mb-8">

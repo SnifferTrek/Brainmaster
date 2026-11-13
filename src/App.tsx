@@ -6,8 +6,9 @@ import LogicGame from './components/LogicGame';
 import MemoryGame from './components/MemoryGame';
 import MathGame from './components/MathGame';
 import WordGame from './components/WordGame';
+import IQTest from './iq/IQTest';
 
-type View = 'dashboard' | ExerciseType;
+type View = 'dashboard' | 'iq' | ExerciseType;
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -41,6 +42,8 @@ function App() {
 
   const renderGame = () => {
     switch (currentView) {
+      case 'iq':
+        return <IQTest onBack={handleBack} />;
       case 'logic':
         return <LogicGame onComplete={handleGameComplete} onBack={handleBack} />;
       case 'memory':
@@ -80,7 +83,7 @@ function App() {
       )}
 
       {currentView === 'dashboard' ? (
-        <Dashboard progress={progress} onSelectExercise={handleSelectExercise} />
+        <Dashboard progress={progress} onSelectExercise={handleSelectExercise} onStartIQ={() => setCurrentView('iq')} />
       ) : (
         <div className="px-4 py-8">
           {renderGame()}
