@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { UserProgress } from '../types';
 import { NAME_KEY, avatarFor, buildProfile, renderCardPng } from '../utils/profile';
+import { createProfile, getProfile } from '../utils/social';
 
 export default function ProfileCard({ progress, onClose }: { progress: UserProgress; onClose: () => void }) {
   const [name, setName] = useState(localStorage.getItem(NAME_KEY) || '');
@@ -10,7 +11,9 @@ export default function ProfileCard({ progress, onClose }: { progress: UserProgr
 
   const changeName = (v: string) => {
     setName(v);
-    localStorage.setItem(NAME_KEY, v.trim());
+    const trimmed = v.trim();
+    localStorage.setItem(NAME_KEY, trimmed);
+    if (trimmed && !getProfile()) createProfile(trimmed);
   };
 
   const save = async () => {
@@ -30,10 +33,10 @@ export default function ProfileCard({ progress, onClose }: { progress: UserProgr
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], text, title: 'Brainmaster' });
       } else if (navigator.share) {
-        await navigator.share({ text, url: location.href, title: 'Brainmaster' });
+        await navigator.share({ text, title: 'Brainmaster' });
       } else {
-        await navigator.clipboard.writeText(`${text} ${location.href}`);
-        setMsg('Link in die Zwischenablage kopiert!');
+        await navigator.clipboard.writeText(text);
+        setMsg('Text in die Zwischenablage kopiert!');
       }
     } catch {
       /* abgebrochen */
@@ -49,12 +52,13 @@ export default function ProfileCard({ progress, onClose }: { progress: UserProgr
             <div className="w-24 h-24 rounded-full mx-auto mt-3 flex items-center justify-center text-5xl border-4 border-white" style={{ background: av.bg }}>
               {av.emoji}
             </div>
+            <p className="text-xs text-white/80 mt-2">So sehen dich Freunde im Vergleich</p>
             <input
               value={name}
               onChange={e => changeName(e.target.value)}
               placeholder="Dein Name"
               maxLength={20}
-              className="mt-3 w-full bg-transparent text-center text-2xl font-bold placeholder-white/60 outline-none border-b border-white/30"
+              className="mt-2 w-full bg-transparent text-center text-2xl font-bold placeholder-white/60 outline-none border-b border-white/30"
             />
             <div className="font-semibold mt-1">{pr.rank.emoji} {pr.rank.title}</div>
 

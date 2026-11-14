@@ -57,7 +57,7 @@ const TOUR = [
 
 const MAX_LEVEL = 10;
 
-type Step = 'welcome' | 'mode' | 'test' | 'result' | 'tourAsk' | 'tour' | 'done';
+type Step = 'welcome' | 'mode' | 'test' | 'result' | 'tourAsk' | 'tour';
 
 function MemorizeAutoAdvance({ ms, onDone }: { ms: number; onDone: () => void }) {
   useEffect(() => {
@@ -102,9 +102,12 @@ function calculateLevel(answers: AnswerRecord[]): number {
 interface OnboardingProps {
   onFinish: (startLevel: number | null, mode: OnboardingMode) => void;
   onStartIQTest?: (startLevel: number) => void;
+  /** Aus Einstellungen: Schliessen zurück zu Settings */
+  replayMode?: boolean;
+  onClose?: () => void;
 }
 
-export default function Onboarding({ onFinish, onStartIQTest }: OnboardingProps) {
+export default function Onboarding({ onFinish, onStartIQTest, replayMode, onClose }: OnboardingProps) {
   const [step, setStep] = useState<Step>('welcome');
   const [mode, setMode] = useState<OnboardingMode>('practice');
   const [qIndex, setQIndex] = useState(0);
@@ -211,8 +214,8 @@ export default function Onboarding({ onFinish, onStartIQTest }: OnboardingProps)
   const secondary = `${btn} bg-gray-100 text-gray-700 hover:bg-gray-200`;
 
   const flowSteps: Step[] = mode === 'measure'
-    ? ['welcome', 'mode', 'test', 'result', 'tourAsk', 'done']
-    : ['welcome', 'mode', 'tourAsk', 'done'];
+    ? ['welcome', 'mode', 'test', 'result', 'tourAsk']
+    : ['welcome', 'mode', 'tourAsk'];
   const flowActive = Math.max(0, flowSteps.indexOf(step === 'tour' ? 'tourAsk' : step));
 
   let content;
@@ -288,13 +291,6 @@ export default function Onboarding({ onFinish, onStartIQTest }: OnboardingProps)
                   style={{ animation: `onbMemShrink ${memorizeMs}ms linear forwards` }}
                 />
               </div>
-              <button
-                type="button"
-                onClick={() => setMemoryPhase('answer')}
-                className="text-sm text-primary-600 font-semibold underline"
-              >
-                Ich bin bereit →
-              </button>
               <MemorizeAutoAdvance ms={memorizeMs} onDone={() => setMemoryPhase('answer')} />
             </div>
           ) : (
@@ -391,7 +387,7 @@ export default function Onboarding({ onFinish, onStartIQTest }: OnboardingProps)
           <h2 className="text-2xl font-bold text-gray-800 mb-6">Möchtest du eine kurze Einführung?</h2>
           <div className="flex flex-col gap-3">
             <button className={primary} onClick={() => { setTourIndex(0); setStep('tour'); }}>Ja, gerne</button>
-            <button className={secondary} onClick={() => setStep('done')}>Nein, direkt zum Dashboard</button>
+            <button className={secondary} onClick={() => finish()}>Nein, direkt zum Dashboard</button>
           </div>
         </div>
       );
@@ -405,7 +401,7 @@ export default function Onboarding({ onFinish, onStartIQTest }: OnboardingProps)
           <p className="text-gray-600 mb-8 min-h-12">{t.text}</p>
           <div className="flex gap-3">
             <button className={secondary} onClick={() => tourIndex === 0 ? setStep('tourAsk') : setTourIndex(tourIndex - 1)}>Zurück</button>
-            <button className={primary} onClick={() => tourIndex === TOUR.length - 1 ? setStep('done') : setTourIndex(tourIndex + 1)}>
+            <button className={primary} onClick={() => (tourIndex === TOUR.length - 1 ? finish() : setTourIndex(tourIndex + 1))}>
               {tourIndex === TOUR.length - 1 ? 'Fertig' : 'Weiter'}
             </button>
           </div>
@@ -414,20 +410,21 @@ export default function Onboarding({ onFinish, onStartIQTest }: OnboardingProps)
       );
       break;
     }
-    case 'done':
-      content = (
-        <div className="text-center">
-          <div className="text-7xl mb-4">🎉</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Bereit! Viel Erfolg beim Training.</h2>
-          <button className={primary} onClick={finish}>Zum Dashboard</button>
-        </div>
-      );
-      break;
   }
 
   return (
     <div className="fixed inset-0 z-[60] overflow-y-auto bg-gradient-to-br from-primary-50 via-white to-accent-50">
       <style>{`@keyframes onbMemShrink { from { transform: scaleX(1); } to { transform: scaleX(0); } }`}</style>
+      {replayMode && onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="fixed top-4 right-4 z-[70] w-11 h-11 rounded-full bg-white shadow-lg text-gray-600 font-bold text-xl hover:bg-gray-50"
+          aria-label="Einführung schliessen"
+        >
+          ✕
+        </button>
+      )}
       <div className="min-h-full flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-6 sm:p-8">
           {content}

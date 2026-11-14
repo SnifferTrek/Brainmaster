@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import ProfileCard from './ProfileCard';
 import type { UserProgress } from '../types';
 import { getReminderPrefs, setReminderEnabled, setReminderHour } from '../utils/reminder';
+import { NAME_KEY, buildProfile } from '../utils/profile';
+import { getProfile } from '../utils/social';
 
 interface SettingsProps {
   progress: UserProgress;
@@ -22,6 +24,8 @@ export default function Settings({
 }: SettingsProps) {
   const [showProfile, setShowProfile] = useState(false);
   const [reminder, setReminder] = useState(() => getReminderPrefs());
+  const displayName = localStorage.getItem(NAME_KEY) || getProfile()?.name || '';
+  const profilePreview = useMemo(() => buildProfile(progress), [progress, displayName]);
 
   const toggleReminder = () => {
     const next = !reminder.enabled;
@@ -41,14 +45,22 @@ export default function Settings({
 
       <section className="card mb-4">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Community</h2>
-        <div className="grid grid-cols-3 gap-3">
-          <button type="button" onClick={() => setShowProfile(true)} className="card-hover text-center py-4">
-            <div className="text-2xl">🎴</div>
-            <div className="text-sm font-medium text-gray-700">Profil</div>
-          </button>
+        <button
+          type="button"
+          onClick={() => setShowProfile(true)}
+          className="w-full text-left p-4 rounded-xl border border-gray-100 bg-gray-50/80 mb-3 hover:bg-gray-50"
+        >
+          <ProfilePreview
+            displayName={displayName}
+            rank={profilePreview.rank.title}
+            emoji={profilePreview.rank.emoji}
+            level={profilePreview.level}
+          />
+        </button>
+        <div className="grid grid-cols-2 gap-3">
           <button type="button" onClick={onShare} className="card-hover text-center py-4">
             <div className="text-2xl">📤</div>
-            <div className="text-sm font-medium text-gray-700">Teilen</div>
+            <div className="text-sm font-medium text-gray-700">Fortschritt teilen</div>
           </button>
           <button type="button" onClick={onShowFriends} className="card-hover text-center py-4">
             <div className="text-2xl">👥</div>
@@ -60,37 +72,32 @@ export default function Settings({
 
       <section className="card mb-4">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Training</h2>
-        <div className="flex items-center justify-between py-2 mb-3">
-          <div>
-            <span className="font-medium text-gray-800">Tägliche Erinnerung</span>
-            <p className="text-xs text-gray-500 mt-0.5">Hinweis auf dem Start-Tab, wenn du heute noch nicht trainiert hast</p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={reminder.enabled}
-            onClick={toggleReminder}
-            className={`relative w-14 h-8 rounded-full transition-colors ${reminder.enabled ? 'bg-primary-600' : 'bg-gray-300'}`}
-          >
-            <span
-              className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow transition-transform ${reminder.enabled ? 'translate-x-6' : ''}`}
-            />
-          </button>
-        </div>
-        {reminder.enabled && (
-          <label className="block text-sm text-gray-600">
-            Erinnerungs-Uhrzeit (optional)
+        <div className="flex items-center justify-between gap-4 py-3 min-h-[56px]">
+          <span className="font-medium text-gray-800 text-base">Tägliche Erinnerung</span>
+          {reminder.enabled && (
             <select
-              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2"
+              className="rounded-lg border border-gray-200 px-2 py-2 text-sm max-w-[5.5rem]"
               value={reminder.hour}
               onChange={e => changeHour(Number(e.target.value))}
+              aria-label="Erinnerungs-Uhrzeit"
             >
               {Array.from({ length: 24 }, (_, i) => (
                 <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
               ))}
             </select>
-          </label>
-        )}
+          )}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={reminder.enabled}
+            onClick={toggleReminder}
+            className={`relative shrink-0 w-16 h-10 rounded-full transition-colors ${reminder.enabled ? 'bg-primary-600' : 'bg-gray-300'}`}
+          >
+            <span
+              className={`absolute top-1 left-1 w-8 h-8 rounded-full bg-white shadow transition-transform ${reminder.enabled ? 'translate-x-6' : ''}`}
+            />
+          </button>
+        </div>
       </section>
 
       <section className="card mb-4">
@@ -124,5 +131,28 @@ export default function Settings({
         </button>
       </section>
     </div>
+  );
+}
+
+function ProfilePreview({
+  displayName,
+  rank,
+  emoji,
+  level,
+}: {
+  displayName: string;
+  rank: string;
+  emoji: string;
+  level: number;
+}) {
+  const name = displayName.trim() || `Spieler · Stufe ${level}`;
+  return (
+    <>
+      <div className="text-xs text-gray-500 mb-1">Profil · So sehen dich Freunde im Vergleich</div>
+      <div className="font-semibold text-gray-800">{name}</div>
+      <div className="text-sm text-gray-600 mt-0.5">
+        {emoji} {rank}
+      </div>
+    </>
   );
 }
