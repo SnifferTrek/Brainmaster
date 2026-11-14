@@ -369,16 +369,22 @@ function App() {
                   key={t.view}
                   onClick={() => setCurrentView(t.view)}
                   aria-current={active ? 'page' : undefined}
-                  className={`relative flex flex-col items-center gap-0.5 py-2 px-1 rounded-xl text-[10px] sm:text-xs font-semibold transition-all ${
+                  className={`relative flex flex-col items-center gap-0.5 py-2.5 px-1.5 rounded-2xl transition-all ${
                     active
-                      ? 'text-primary-700 bg-primary-50'
-                      : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
-                  }`}
+                      ? 'text-primary-800 bg-primary-100 shadow-md ring-2 ring-primary-500 font-extrabold'
+                      : 'text-gray-500 font-semibold hover:text-gray-800 hover:bg-gray-50 text-[10px] sm:text-xs'
+                  } ${active ? 'text-[11px] sm:text-xs' : ''}`}
                 >
                   {active && (
-                    <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full bg-primary-600" />
+                    <span className="absolute inset-x-2 -top-px h-1 rounded-full bg-primary-600" />
                   )}
-                  <span className={`text-lg sm:text-xl ${active ? 'scale-110' : ''} transition-transform`}>{t.icon}</span>
+                  <span
+                    className={`text-lg sm:text-xl transition-transform ${
+                      active ? 'scale-125 drop-shadow-sm' : ''
+                    }`}
+                  >
+                    {t.icon}
+                  </span>
                   <span className="leading-tight text-center">{t.label}</span>
                 </button>
               );

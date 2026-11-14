@@ -1,10 +1,11 @@
 import type { Question, Option } from '../iq/questions';
+import { shapeVisualKey } from '../iq/shapeVisual';
 
 function normalizeOptions(opts: Option[]): string {
   return opts
     .map(o => {
       if (typeof o === 'string') return o;
-      if ('kind' in o) return `${o.kind}:${o.rot ?? 0}:${o.n ?? ''}:${o.size ?? ''}:${o.fill ?? ''}`;
+      if ('kind' in o) return shapeVisualKey(o);
       return `t:${o.flip}:${o.rot}`;
     })
     .sort()

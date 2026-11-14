@@ -1,5 +1,6 @@
 import type { Question, Category, ShapeSpec, Transform } from './questions';
 import { generateUnique, iqQuestionSignature } from '../utils/questionSignature';
+import { shapeOptionsDistinct } from './shapeVisual';
 
 const rand = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 const pick = <T>(arr: T[]): T => arr[rand(0, arr.length - 1)];
@@ -100,34 +101,57 @@ function generateSequenceQuestion(difficulty: 1 | 2 | 3): Question {
 }
 
 const SHAPES: ShapeSpec['kind'][] = ['circle', 'square', 'triangle', 'star', 'diamond'];
+/** Formen, bei denen 90°-Drehung im UI sichtbar bleibt (kein Kreis/Quadrat/Raute). */
+const ROTATION_ASYMMETRIC_SHAPES: ShapeSpec['kind'][] = ['triangle'];
 const ROTATIONS = [0, 90, 180, 270];
+
+function generateRotationPatternQuestion(
+  id: string,
+  difficulty: 1 | 2 | 3,
+  shape: ShapeSpec['kind'] = 'triangle',
+): Question {
+  const step = 90;
+  const startRot = pick(ROTATIONS);
+  const items: (ShapeSpec | null)[] = [];
+  for (let i = 0; i < 3; i++) {
+    items.push({ kind: shape, rot: (startRot + i * step) % 360 });
+  }
+  items.push(null);
+  const correctRot = (startRot + 3 * step) % 360;
+  const correct: ShapeSpec = { kind: shape, rot: correctRot };
+  const wrongRots = ROTATIONS.filter(r => r !== correctRot);
+  const wrongs: ShapeSpec[] = wrongRots.map(r => ({ kind: shape, rot: r }));
+  const options = shuffle([correct, ...wrongs]);
+
+  if (!shapeOptionsDistinct(options)) {
+    throw new Error('pattern rotation options not visually distinct');
+  }
+
+  return {
+    id, category: 'pattern', difficulty,
+    text: 'Welche Form ergänzt die Reihe? (Die Form dreht sich jeweils um 90°.)',
+    options,
+    visual: { type: 'shapes', items },
+  };
+}
+
+export function isPatternQuestionSolvable(q: Question): boolean {
+  if (q.category !== 'pattern') return true;
+  const shapeOpts = q.options.filter((o): o is ShapeSpec => typeof o === 'object' && 'kind' in o);
+  if (shapeOpts.length !== 4) return true;
+  if (!shapeOptionsDistinct(shapeOpts)) return false;
+  if (q.text.includes('90°') || q.text.includes('dreht')) {
+    return shapeOpts.every(s => ROTATION_ASYMMETRIC_SHAPES.includes(s.kind));
+  }
+  return true;
+}
 
 function generatePatternQuestion(difficulty: 1 | 2 | 3): Question {
   const id = `pat_${Date.now()}_${rand(0, 9999)}`;
   
   if (difficulty === 1) {
-    // Kreis, Quadrat & Stern: Rotation nicht unterscheidbar — nur Dreieck & Raute
-    const shape = pick(SHAPES.filter(s => s === 'triangle' || s === 'diamond'));
-    const step = 90;
-    const startRot = pick(ROTATIONS);
-    const items: (ShapeSpec | null)[] = [];
-    for (let i = 0; i < 3; i++) {
-      items.push({ kind: shape, rot: (startRot + i * step) % 360 });
-    }
-    items.push(null);
-    const correctRot = (startRot + 3 * step) % 360;
-    const correct: ShapeSpec = { kind: shape, rot: correctRot };
-    const wrongRots = ROTATIONS.filter(r => r !== correctRot);
-    const wrongs: ShapeSpec[] = shuffle(wrongRots)
-      .slice(0, 3)
-      .map(r => ({ kind: shape, rot: r }));
-
-    return {
-      id, category: 'pattern', difficulty,
-      text: 'Welche Form ergänzt die Reihe? (Die Form dreht sich jeweils um 90°.)',
-      options: shuffle([correct, ...wrongs]),
-      visual: { type: 'shapes', items },
-    };
+    const shape = pick(ROTATION_ASYMMETRIC_SHAPES);
+    return generateRotationPatternQuestion(id, difficulty, shape);
   }
   
   if (difficulty === 2) {
@@ -148,7 +172,10 @@ function generatePatternQuestion(difficulty: 1 | 2 | 3): Question {
     };
   }
   
-  const shape = pick(SHAPES);
+  const rotNeutralShapes = SHAPES.filter(s => s !== 'circle') as ShapeSpec['kind'][];
+  const shape: ShapeSpec['kind'] = pick(
+    rotNeutralShapes.length ? rotNeutralShapes : (['triangle'] as ShapeSpec['kind'][]),
+  );
   const sizes = [0.4, 0.6, 0.8];
   const fills = [true, false, true];
   const items: (ShapeSpec | null)[] = sizes.map((size, i) => ({ 
@@ -161,13 +188,16 @@ function generatePatternQuestion(difficulty: 1 | 2 | 3): Question {
     { kind: shape, size: 0.7, fill: false },
     { kind: pick(SHAPES.filter(s => s !== shape)), size: 1, fill: false },
   ];
-  
-  return {
-    id, category: 'pattern', difficulty,
-    text: 'Die Formen wachsen und wechseln die Füllung. Was folgt?',
-    options: shuffle([correct, ...wrongs]),
-    visual: { type: 'shapes', items },
-  };
+  const options = shuffle([correct, ...wrongs]);
+  if (shapeOptionsDistinct(options)) {
+    return {
+      id, category: 'pattern', difficulty,
+      text: 'Die Formen wachsen und wechseln die Füllung. Was folgt?',
+      options,
+      visual: { type: 'shapes', items },
+    };
+  }
+  return generateRotationPatternQuestion(id, difficulty, 'triangle');
 }
 
 interface LogicTemplate {
@@ -395,29 +425,19 @@ function generateMathQuestion(difficulty: 1 | 2 | 3): Question {
 
 /** Stabile Musterfrage für Frage 6/30 (erstes Muster, leicht) — eindeutig lösbar. */
 function generateStableFirstPatternQuestion(): Question {
-  const shape: ShapeSpec['kind'] = 'triangle';
-  const startRot = 0;
-  const step = 90;
-  const items: (ShapeSpec | null)[] = [];
-  for (let i = 0; i < 3; i++) {
-    items.push({ kind: shape, rot: (startRot + i * step) % 360 });
-  }
-  items.push(null);
-  const correctRot = (startRot + 3 * step) % 360;
-  const correct: ShapeSpec = { kind: shape, rot: correctRot };
-  const wrongRots = ROTATIONS.filter(r => r !== correctRot);
-  const wrongs: ShapeSpec[] = shuffle(wrongRots)
-    .slice(0, 3)
-    .map(r => ({ kind: shape, rot: r }));
+  return generateRotationPatternQuestion(`pat_stable_${Date.now()}`, 1, 'triangle');
+}
 
-  return {
-    id: `pat_stable_${Date.now()}`,
-    category: 'pattern',
-    difficulty: 1,
-    text: 'Welche Form ergänzt die Reihe? (Die Form dreht sich jeweils um 90°.)',
-    options: shuffle([correct, ...wrongs]),
-    visual: { type: 'shapes', items },
-  };
+function generateUniquePattern(
+  signature: (item: Question) => string,
+  gen: () => Question,
+  previousSig: string | null,
+): Question {
+  for (let attempts = 0; attempts < 40; attempts++) {
+    const q = generateUnique(signature, gen, previousSig);
+    if (isPatternQuestionSolvable(q)) return q;
+  }
+  return generateStableFirstPatternQuestion();
 }
 
 export function generateQuestions(): Question[] {
@@ -442,7 +462,10 @@ export function generateQuestions(): Question[] {
           case 'math': return generateMathQuestion(difficulty);
         }
       };
-      const q = generateUnique(iqQuestionSignature, gen, prevSig);
+      const q =
+        category === 'pattern'
+          ? generateUniquePattern(iqQuestionSignature, gen, prevSig)
+          : generateUnique(iqQuestionSignature, gen, prevSig);
       questions.push(q);
     }
   }

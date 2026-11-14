@@ -432,11 +432,6 @@ export default function Onboarding({ onFinish, onStartIQTest }: OnboardingProps)
         <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-6 sm:p-8">
           {content}
           {step !== 'tour' && dots(flowSteps.length, flowActive)}
-          {step !== 'done' && step !== 'test' && (
-            <button className="block mx-auto mt-4 text-sm text-gray-400 hover:text-gray-600" onClick={() => { saveOnboarding(mode === 'measure' && step !== 'welcome' && step !== 'mode' ? mode : 'practice', null); onFinish(null, 'practice'); }}>
-              Überspringen
-            </button>
-          )}
         </div>
       </div>
     </div>
