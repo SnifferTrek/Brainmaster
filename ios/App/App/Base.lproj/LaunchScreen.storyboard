@@ -15,22 +15,28 @@
                         <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="🧠" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="brain-label">
+                                <rect key="frame" x="151.5" y="168" width="72" height="86"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="76"/>
+                                <nil key="textColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="GEHIRNTRAINING" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="tagline-label">
-                                <rect key="frame" x="87.5" y="274" width="200" height="16"/>
-                                <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="11"/>
-                                <color key="textColor" red="0.027" green="0.525" blue="0.78" alpha="0.85" colorSpace="custom" customColorSpace="sRGB"/>
+                                <rect key="frame" x="87.5" y="268" width="200" height="16"/>
+                                <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="12"/>
+                                <color key="textColor" red="0.027" green="0.525" blue="0.78" alpha="0.9" colorSpace="custom" customColorSpace="sRGB"/>
                                 <nil key="highlightedColor"/>
                             </label>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Brainmaster" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="title-label">
-                                <rect key="frame" x="62.5" y="296" width="250" height="36"/>
-                                <fontDescription key="fontDescription" type="boldSystem" pointSize="30"/>
+                                <rect key="frame" x="62.5" y="294" width="250" height="36"/>
+                                <fontDescription key="fontDescription" type="boldSystem" pointSize="34"/>
                                 <color key="textColor" red="0.07" green="0.09" blue="0.15" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 <nil key="highlightedColor"/>
                             </label>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="🧠" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="brain-label">
-                                <rect key="frame" x="167.5" y="212" width="40" height="48"/>
-                                <fontDescription key="fontDescription" type="system" pointSize="40"/>
-                                <nil key="textColor"/>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Trainiere nicht nur deinen Körper — auch dein Gehirn.&#10;Tägliche Aufgaben machen dich fit." textAlignment="center" lineBreakMode="wordWrap" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="quote-label">
+                                <rect key="frame" x="32" y="344" width="311" height="60"/>
+                                <fontDescription key="fontDescription" type="system" weight="medium" pointSize="15"/>
+                                <color key="textColor" red="0.35" green="0.4" blue="0.47" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 <nil key="highlightedColor"/>
                             </label>
                         </subviews>
@@ -38,11 +44,15 @@
                         <color key="backgroundColor" red="0.973" green="0.98" blue="0.988" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
                             <constraint firstItem="title-label" firstAttribute="centerX" secondItem="splash-root" secondAttribute="centerX" id="c-title-x"/>
-                            <constraint firstItem="title-label" firstAttribute="centerY" secondItem="splash-root" secondAttribute="centerY" id="c-title-y"/>
+                            <constraint firstItem="title-label" firstAttribute="centerY" secondItem="splash-root" secondAttribute="centerY" constant="-28" id="c-title-y"/>
                             <constraint firstItem="tagline-label" firstAttribute="centerX" secondItem="splash-root" secondAttribute="centerX" id="c-tag-x"/>
-                            <constraint firstItem="tagline-label" firstAttribute="bottom" secondItem="title-label" secondAttribute="top" constant="-6" id="c-tag-b"/>
+                            <constraint firstItem="tagline-label" firstAttribute="bottom" secondItem="title-label" secondAttribute="top" constant="-10" id="c-tag-b"/>
                             <constraint firstItem="brain-label" firstAttribute="centerX" secondItem="splash-root" secondAttribute="centerX" id="c-brain-x"/>
-                            <constraint firstItem="brain-label" firstAttribute="bottom" secondItem="tagline-label" secondAttribute="top" constant="-14" id="c-brain-b"/>
+                            <constraint firstItem="brain-label" firstAttribute="bottom" secondItem="tagline-label" secondAttribute="top" constant="-18" id="c-brain-b"/>
+                            <constraint firstItem="quote-label" firstAttribute="centerX" secondItem="splash-root" secondAttribute="centerX" id="c-quote-x"/>
+                            <constraint firstItem="quote-label" firstAttribute="top" secondItem="title-label" secondAttribute="bottom" constant="14" id="c-quote-t"/>
+                            <constraint firstItem="quote-label" firstAttribute="leading" secondItem="safe-area" secondAttribute="leading" constant="28" id="c-quote-l"/>
+                            <constraint firstItem="safe-area" firstAttribute="trailing" secondItem="quote-label" secondAttribute="trailing" constant="28" id="c-quote-r"/>
                         </constraints>
                     </view>
                 </viewController>
