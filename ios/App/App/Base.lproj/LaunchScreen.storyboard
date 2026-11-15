@@ -40,9 +40,9 @@
                             <constraint firstItem="title-label" firstAttribute="centerX" secondItem="splash-root" secondAttribute="centerX" id="c-title-x"/>
                             <constraint firstItem="title-label" firstAttribute="centerY" secondItem="splash-root" secondAttribute="centerY" id="c-title-y"/>
                             <constraint firstItem="tagline-label" firstAttribute="centerX" secondItem="splash-root" secondAttribute="centerX" id="c-tag-x"/>
-                            <constraint firstItem="tagline-label" firstAttribute="bottom" secondItem="title-label" firstAttribute="top" constant="-6" id="c-tag-b"/>
+                            <constraint firstItem="tagline-label" firstAttribute="bottom" secondItem="title-label" secondAttribute="top" constant="-6" id="c-tag-b"/>
                             <constraint firstItem="brain-label" firstAttribute="centerX" secondItem="splash-root" secondAttribute="centerX" id="c-brain-x"/>
-                            <constraint firstItem="brain-label" firstAttribute="bottom" secondItem="tagline-label" firstAttribute="top" constant="-14" id="c-brain-b"/>
+                            <constraint firstItem="brain-label" firstAttribute="bottom" secondItem="tagline-label" secondAttribute="top" constant="-14" id="c-brain-b"/>
                         </constraints>
                     </view>
                 </viewController>
