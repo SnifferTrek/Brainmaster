@@ -1,7 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { saveOnboarding } from '../utils/onboarding';
 import type { OnboardingMode } from '../utils/onboarding';
-import { StartScreenBrand } from './BrainLogo';
+import { APP_DISPLAY_NAME, APP_TAGLINE, BrainLogo } from './BrainLogo';
+
+const INTRO_LINES = [
+  'Trainiere nicht nur deinen Körper — auch dein Gehirn.',
+  'Tägliche Aufgaben machen dich fit.',
+  'Kurze Übungen, echte Fortschritte — in nur wenigen Minuten.',
+  'Logik, Gedächtnis, Sprache und mehr — personalisiert für dich.',
+];
 
 interface Question {
   type: 'logic' | 'memory' | 'math' | 'words';
@@ -50,7 +57,7 @@ const QUESTIONS: Question[] = [
 ];
 
 const TOUR = [
-  { emoji: '📅', title: 'Tägliche Übungen', text: 'Tägliche Übungen verbessern dein Gehirn.' },
+  { emoji: '📅', title: 'Tägliche Übungen', text: 'Wie beim Sport: Regelmässigkeit macht dein Gehirn leistungsfähiger.' },
   { emoji: '📈', title: 'Automatische Anpassung', text: 'Dein Level passt sich automatisch an.' },
   { emoji: '🏆', title: 'Achievements', text: 'Sammle Achievements und verfolge deinen Fortschritt.' },
   { emoji: '🎯', title: 'IQ-Test', text: 'Mache den IQ-Test, um dich zu messen.' },
@@ -223,12 +230,26 @@ export default function Onboarding({ onFinish, onStartIQTest, replayMode, onClos
   switch (step) {
     case 'welcome':
       content = (
-        <div>
-          <div className="mb-6 flex justify-center">
-            <StartScreenBrand />
+        <div className="text-center">
+          <div className="relative mx-auto mb-5 flex h-36 w-36 items-center justify-center">
+            <span className="absolute inset-0 rounded-full bg-primary-100/80 blur-2xl" aria-hidden />
+            <BrainLogo className="relative h-32 w-32 text-primary-600 drop-shadow-md" />
           </div>
-          <p className="text-center text-gray-600 mb-8">Willkommen — trainiere dein Gehirn mit täglichen Übungen.</p>
-          <button className={primary} onClick={() => setStep('mode')}>Los geht&apos;s</button>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary-600/90">{APP_TAGLINE}</p>
+          <h1 className="text-3xl font-bold text-gray-900 mt-1 mb-5 tracking-tight">{APP_DISPLAY_NAME}</h1>
+          <ul className="text-left space-y-3 mb-8 px-1">
+            {INTRO_LINES.map(line => (
+              <li key={line} className="flex gap-2.5 text-sm text-gray-700 leading-snug">
+                <span className="text-primary-500 font-bold shrink-0" aria-hidden>
+                  •
+                </span>
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+          <button className={primary} onClick={() => setStep('mode')}>
+            Los geht&apos;s
+          </button>
         </div>
       );
       break;
