@@ -1,5 +1,6 @@
 import type { Category } from '../iq/questions';
 import type { ExerciseType } from '../types';
+import { getReminderPrefs } from './reminder';
 import { saveGoal, type GoalId } from './trainingPlan';
 
 const PLAN_KEY = 'brainmaster_training_plan';
@@ -7,10 +8,56 @@ const PLAN_KEY = 'brainmaster_training_plan';
 export interface TrainingPlanSettings {
   dailyMinutes: number;
   focusAreas: Category[];
+  planModules?: ExerciseType[];
   extraModules?: ExerciseType[];
   reminderEnabled: boolean;
   reminderHour?: number;
   createdAt: string;
+}
+
+const ALL_EXERCISES: ExerciseType[] = ['logic', 'memory', 'math', 'words'];
+
+export function getPlanModules(): ExerciseType[] {
+  return getTrainingPlan()?.planModules ?? [];
+}
+
+export function isPlanModuleSelected(t: ExerciseType): boolean {
+  const m = getPlanModules();
+  return m.length > 0 ? m.includes(t) : false;
+}
+
+export function setPlanModules(modules: ExerciseType[]): void {
+  const plan = getTrainingPlan();
+  const unique = [...new Set(modules)].filter(m => ALL_EXERCISES.includes(m));
+  if (plan) {
+    saveTrainingPlan({ ...plan, planModules: unique.length > 0 ? unique : undefined });
+  } else if (unique.length > 0) {
+    saveTrainingPlan({
+      dailyMinutes: 10,
+      focusAreas: [],
+      planModules: unique,
+      reminderEnabled: getReminderPrefs().enabled,
+      reminderHour: getReminderPrefs().hour,
+    });
+  }
+}
+
+export function togglePlanModule(t: ExerciseType): ExerciseType[] {
+  const plan = getTrainingPlan();
+  const current = plan?.planModules ?? [];
+  const next = current.includes(t) ? current.filter(x => x !== t) : [...current, t];
+  if (plan) {
+    saveTrainingPlan({ ...plan, planModules: next.length > 0 ? next : undefined });
+  } else {
+    saveTrainingPlan({
+      dailyMinutes: 10,
+      focusAreas: [],
+      planModules: next,
+      reminderEnabled: getReminderPrefs().enabled,
+      reminderHour: getReminderPrefs().hour,
+    });
+  }
+  return next;
 }
 
 export type TrainingPlanInput = Omit<TrainingPlanSettings, 'createdAt'>;

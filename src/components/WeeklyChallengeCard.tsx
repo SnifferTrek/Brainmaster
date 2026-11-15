@@ -5,7 +5,11 @@ import {
   toggleWeeklyChallengeDone,
 } from '../utils/weeklyChallenge';
 
-export default function WeeklyChallengeCard() {
+interface WeeklyChallengeCardProps {
+  onOpenCatalog?: () => void;
+}
+
+export default function WeeklyChallengeCard({ onOpenCatalog }: WeeklyChallengeCardProps) {
   const [, bump] = useState(0);
   const refresh = useCallback(() => bump(n => n + 1), []);
 
@@ -39,6 +43,15 @@ export default function WeeklyChallengeCard() {
       >
         {completed ? 'Erledigt diese Woche' : 'Als erledigt markieren'}
       </button>
+      {onOpenCatalog && (
+        <button
+          type="button"
+          onClick={onOpenCatalog}
+          className="w-full mt-2 py-2 text-xs font-semibold text-violet-700 underline"
+        >
+          100 Wochenaktionen — auswählen & an/aus
+        </button>
+      )}
       <p className="text-[10px] text-center text-gray-400 mt-2">
         Real-Welt-Aufgabe — eigenständig umsetzen, jede Woche neu.
       </p>

@@ -3,7 +3,6 @@ import type { UserProgress, ExerciseType } from '../types';
 import { getDifficultyLabel } from '../utils/storage';
 import { effectiveLevelHint, getEffectiveLevelInfo } from '../utils/trainingLevel';
 import { getTrainingPlan } from '../utils/iqTrainingPlan';
-import { reminderBannerText, shouldShowReminderBanner } from '../utils/reminder';
 
 interface DashboardProps {
   progress: UserProgress;
@@ -27,8 +26,6 @@ export default function Dashboard({ progress, onSelectExercise, onStartIQ, onSho
   const iqPlan = getTrainingPlan();
   const startType = recommended ?? 'logic';
   const startMeta = exercises.find(e => e.type === startType)!;
-  const showReminder = shouldShowReminderBanner(progress);
-
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 pb-28">
       <header className="mb-6">
@@ -57,16 +54,6 @@ export default function Dashboard({ progress, onSelectExercise, onStartIQ, onSho
         <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
           {levelHint}
         </p>
-      )}
-
-      {showReminder && (
-        <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-          <span className="font-semibold">🔔 </span>
-          {reminderBannerText()}
-          <button type="button" onClick={onStartSession} className="block mt-2 font-semibold text-blue-700 underline">
-            Jetzt trainieren
-          </button>
-        </div>
       )}
 
       <button

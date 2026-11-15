@@ -31,6 +31,7 @@ function writePrefs(prefs: ReminderPrefs): void {
     saveTrainingPlan({
       dailyMinutes: plan.dailyMinutes,
       focusAreas: plan.focusAreas,
+      planModules: plan.planModules,
       extraModules: plan.extraModules,
       reminderEnabled: prefs.enabled,
       reminderHour: prefs.hour,

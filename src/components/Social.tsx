@@ -29,33 +29,39 @@ export function NameModal({ onSave, onClose }: { onSave: (n: string) => void; on
       />
       <div className="flex gap-2 justify-end">
         <button className="px-4 py-2 rounded-xl bg-gray-100" onClick={onClose}>Abbrechen</button>
-        <button disabled={!name.trim()} className="px-4 py-2 rounded-xl bg-primary-600 text-white disabled:opacity-40" onClick={() => onSave(name)}>Speichern</button>
+        <button
+          disabled={!name.trim()}
+          className="px-4 py-2 rounded-xl bg-primary-600 text-white disabled:opacity-40"
+          onClick={() => {
+            localStorage.setItem('gehirntraining_username', name.trim());
+            onSave(name);
+          }}
+        >
+          Speichern
+        </button>
       </div>
     </Modal>
   );
 }
 
-export function ShareModal({ link, onClose }: { link: string; onClose: () => void }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(link);
-    } catch {
-      const el = document.getElementById('share-link') as HTMLTextAreaElement | null;
-      el?.select();
-      document.execCommand('copy');
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+export function ShareConfirmModal({
+  onConfirm,
+  onClose,
+}: {
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
   return (
     <Modal onClose={onClose}>
       <h2 className="text-xl font-bold mb-2">📤 Fortschritt teilen</h2>
-      <p className="text-gray-500 text-sm mb-3">Schicke diesen Link an deine Freunde. Er enthält deine aktuellen Stats.</p>
-      <textarea id="share-link" readOnly value={link} rows={4} onFocus={e => e.target.select()} className="w-full border border-gray-300 rounded-xl p-2 text-xs break-all mb-3" />
-      <div className="flex gap-2 justify-end">
-        <button className="px-4 py-2 rounded-xl bg-gray-100" onClick={onClose}>Schließen</button>
-        <button className="px-4 py-2 rounded-xl bg-primary-600 text-white" onClick={copy}>{copied ? '✓ Kopiert!' : '📋 Link kopieren'}</button>
+      <p className="text-gray-600 text-sm mb-6">Stats an Freunde senden? Du kannst Mail, WhatsApp &amp; Co. nutzen.</p>
+      <div className="flex gap-2">
+        <button type="button" className="flex-1 px-4 py-3 rounded-xl bg-gray-100 font-medium" onClick={onClose}>
+          Abbrechen
+        </button>
+        <button type="button" className="flex-1 px-4 py-3 rounded-xl bg-primary-600 text-white font-semibold" onClick={onConfirm}>
+          Teilen
+        </button>
       </div>
     </Modal>
   );

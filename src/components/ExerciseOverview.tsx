@@ -39,6 +39,7 @@ interface ExerciseOverviewProps {
   onStart: () => void;
   onShowPlan: () => void;
   onStartIQ: () => void;
+  onOpenWeeklyCatalog?: () => void;
 }
 
 export default function ExerciseOverview({
@@ -48,6 +49,7 @@ export default function ExerciseOverview({
   onStart,
   onShowPlan,
   onStartIQ,
+  onOpenWeeklyCatalog,
 }: ExerciseOverviewProps) {
   const [, bump] = useState(0);
   const levelInfo = getEffectiveLevelInfo();
@@ -135,7 +137,7 @@ export default function ExerciseOverview({
         )}
       </section>
 
-      <WeeklyChallengeCard />
+      <WeeklyChallengeCard onOpenCatalog={onOpenWeeklyCatalog} />
 
       <section className="mb-8">
         <h2 className="text-lg font-bold text-gray-800 mb-3">Zusätzlich möchte ich trainieren</h2>

@@ -95,31 +95,40 @@ export default function WeeklyTaskCatalog({ onSelectionChange }: WeeklyTaskCatal
           </button>
         ))}
       </div>
-      <ul className="space-y-1 text-sm text-gray-700 max-h-64 overflow-y-auto border border-gray-100 rounded-xl p-2 bg-gray-50/50">
+      <ul className="space-y-1.5 text-sm text-gray-700 max-h-[min(24rem,55vh)] overflow-y-auto border border-gray-100 rounded-xl p-2 bg-gray-50/50 -webkit-overflow-scrolling-touch">
         {filtered.map(t => {
           const on = enabled.has(t.id);
           return (
             <li key={t.id}>
-              <label className="flex items-start gap-2 py-1.5 px-1 rounded-lg hover:bg-white cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={on}
-                  onChange={() => toggle(t.id)}
-                  className="mt-1 h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
-                />
-                <span className="text-lg leading-none shrink-0">{t.emoji}</span>
-                <span className="min-w-0 flex-1">
-                  <span className={`font-medium block ${on ? 'text-gray-900' : 'text-gray-400'}`}>{t.title}</span>
-                  <span className="text-[11px] text-gray-500 block">{t.hint}</span>
+              <button
+                type="button"
+                onClick={() => toggle(t.id)}
+                className={`w-full flex items-start gap-3 py-2.5 px-2 rounded-xl text-left min-h-[3.25rem] active:scale-[0.99] transition-colors ${
+                  on ? 'bg-violet-50 border border-violet-200' : 'bg-white border border-transparent'
+                }`}
+                aria-pressed={on}
+              >
+                <span
+                  className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-xs font-bold ${
+                    on ? 'border-violet-600 bg-violet-600 text-white' : 'border-gray-300 bg-white text-transparent'
+                  }`}
+                  aria-hidden
+                >
+                  ✓
                 </span>
-              </label>
+                <span className="text-xl leading-none shrink-0">{t.emoji}</span>
+                <span className="min-w-0 flex-1">
+                  <span className={`font-medium block text-left ${on ? 'text-gray-900' : 'text-gray-500'}`}>{t.title}</span>
+                  <span className="text-[11px] text-gray-500 block text-left">{t.hint}</span>
+                </span>
+              </button>
             </li>
           );
         })}
       </ul>
-      <p className="text-[10px] text-gray-400 mt-2">
-        Katalog: <code className="text-gray-500">src/data/weeklyTasks.json</code> (100 Ideen, JSON bearbeitbar).
-      </p>
+      {total < 100 && (
+        <p className="text-xs text-amber-800 mt-2">Nur {total} Aufgaben geladen — bitte App neu bauen (npm run build, cap sync).</p>
+      )}
     </div>
   );
 }

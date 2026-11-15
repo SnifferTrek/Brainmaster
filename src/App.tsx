@@ -31,6 +31,7 @@ import TabBar, { isTabView } from './components/TabBar';
 import { getPreparedExerciseTypes, getRecommendation } from './utils/trainingPlan';
 import { getTrainingPlan } from './utils/iqTrainingPlan';
 import { syncWeeklyNotification } from './utils/weeklyNotifications';
+import { requestWeeklyCatalogFocus } from './utils/weeklyCatalogFocus';
 
 type View = 'dashboard' | 'plan' | 'statistics' | 'achievements' | 'settings' | 'iq' | 'session' | ExerciseType;
 
@@ -365,6 +366,10 @@ function App() {
             onStart={startFromHub}
             onShowPlan={() => setCurrentView('plan')}
             onStartIQ={() => setCurrentView('iq')}
+            onOpenWeeklyCatalog={() => {
+              requestWeeklyCatalogFocus();
+              setCurrentView('settings');
+            }}
           />
         ) : currentView === 'session' ? (
           <TrainingSession

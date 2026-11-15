@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import ProfileCard from './ProfileCard';
 import type { UserProgress } from '../types';
 import { getReminderPrefs, setReminderEnabled, setReminderHour } from '../utils/reminder';
@@ -11,6 +11,7 @@ import {
 } from '../utils/weeklyNotifications';
 import WeeklyTaskCatalog from './WeeklyTaskCatalog';
 import { refreshWeeklyChallengeAfterCatalogChange } from '../utils/weeklyChallenge';
+import { consumeWeeklyCatalogFocus } from '../utils/weeklyCatalogFocus';
 import { NAME_KEY, buildProfile } from '../utils/profile';
 import { getProfile } from '../utils/social';
 
@@ -35,7 +36,7 @@ export default function Settings({
   const [reminder, setReminder] = useState(() => getReminderPrefs());
   const [weeklyNotif, setWeeklyNotif] = useState(() => getWeeklyNotificationPrefs());
   const [notifStatus, setNotifStatus] = useState<string | null>(null);
-  const [showTaskList, setShowTaskList] = useState(false);
+  const catalogRef = useRef<HTMLElement>(null);
   const displayName = localStorage.getItem(NAME_KEY) || getProfile()?.name || '';
   const profilePreview = useMemo(() => buildProfile(progress), [progress, displayName]);
 
@@ -63,6 +64,17 @@ export default function Settings({
   };
 
   const toggleWeeklyNotif = () => applyWeeklyNotif({ enabled: !weeklyNotif.enabled });
+
+  const handleCatalogChange = () => {
+    refreshWeeklyChallengeAfterCatalogChange();
+    syncWeeklyNotification().catch(() => {});
+  };
+
+  useEffect(() => {
+    if (consumeWeeklyCatalogFocus() && catalogRef.current) {
+      catalogRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 pb-28">
@@ -94,6 +106,14 @@ export default function Settings({
           </button>
         </div>
         {showProfile && <ProfileCard progress={progress} onClose={() => setShowProfile(false)} />}
+      </section>
+
+      <section ref={catalogRef} className="card mb-4 border border-violet-100">
+        <h2 className="text-sm font-semibold text-violet-700 uppercase tracking-wide mb-1">Wochenaktionen</h2>
+        <p className="text-xs text-gray-500 mb-3">
+          100 Ideen im Katalog — tippe zum Aktivieren (Häkchen). Nur markierte kommen als «Impuls der Woche» vor.
+        </p>
+        <WeeklyTaskCatalog onSelectionChange={handleCatalogChange} />
       </section>
 
       <section className="card mb-4">
@@ -172,23 +192,8 @@ export default function Settings({
             </div>
           )}
           {notifStatus && <p className="text-xs text-violet-800 mb-2">{notifStatus}</p>}
-          <button
-            type="button"
-            onClick={() => setShowTaskList(v => !v)}
-            className="text-sm text-primary-700 font-medium underline"
-          >
-            {showTaskList ? 'Liste der Wochenaufgaben ausblenden' : 'Liste aller Wochenaufgaben anzeigen'}
-          </button>
-          {showTaskList && (
-            <WeeklyTaskCatalog
-              onSelectionChange={() => {
-                refreshWeeklyChallengeAfterCatalogChange();
-                syncWeeklyNotification().catch(() => {});
-              }}
-            />
-          )}
           <p className="text-[10px] text-gray-400 mt-2">
-            Pro Kalenderwoche eine Aufgabe aus den <strong className="font-medium">aktivierten</strong> Ideen.
+            Benachrichtigung nutzt dieselben aktivierten Wochenaktionen wie oben.
           </p>
         </div>
       </section>
