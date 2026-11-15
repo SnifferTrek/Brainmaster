@@ -16,7 +16,8 @@ export default function SoundToggle() {
       onClick={handleClick}
       aria-label={muted ? 'Sounds einschalten' : 'Sounds ausschalten'}
       title={muted ? 'Sounds einschalten' : 'Sounds ausschalten'}
-      className="fixed top-4 right-4 z-40 w-11 h-11 rounded-full bg-white shadow-md border border-gray-200 text-xl flex items-center justify-center hover:scale-105 active:scale-95 transition"
+      className="fixed right-4 z-40 w-11 h-11 rounded-full bg-white shadow-md border border-gray-200 text-xl flex items-center justify-center hover:scale-105 active:scale-95 transition"
+      style={{ top: 'calc(env(safe-area-inset-top, 0px) + 3.25rem)' }}
     >
       {muted ? '🔇' : '🔊'}
     </button>

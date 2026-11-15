@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { saveOnboarding } from '../utils/onboarding';
 import type { OnboardingMode } from '../utils/onboarding';
+import { StartScreenBrand } from './BrainLogo';
 
 interface Question {
   type: 'logic' | 'memory' | 'math' | 'words';
@@ -222,11 +223,12 @@ export default function Onboarding({ onFinish, onStartIQTest, replayMode, onClos
   switch (step) {
     case 'welcome':
       content = (
-        <div className="text-center">
-          <div className="text-7xl mb-4">🧠</div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-3">Willkommen bei Brainmaster!</h1>
-          <p className="text-gray-600 mb-8">Trainiere dein Gehirn mit täglichen Übungen.</p>
-          <button className={primary} onClick={() => setStep('mode')}>Los geht's</button>
+        <div>
+          <div className="mb-6 flex justify-center">
+            <StartScreenBrand />
+          </div>
+          <p className="text-center text-gray-600 mb-8">Willkommen — trainiere dein Gehirn mit täglichen Übungen.</p>
+          <button className={primary} onClick={() => setStep('mode')}>Los geht&apos;s</button>
         </div>
       );
       break;

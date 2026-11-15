@@ -4,6 +4,7 @@ import { getPlanModules, togglePlanModule, isPlanModuleSelected } from '../utils
 import { effectiveLevelHint, getEffectiveLevelInfo } from '../utils/trainingLevel';
 import { getDailyGoalStatus, getPreparedExerciseTypes } from '../utils/trainingPlan';
 import { StartScreenBrand } from './BrainLogo';
+import WeeklyChallengeCard from './WeeklyChallengeCard';
 
 const CATEGORIES: { type: ExerciseType; label: string; emoji: string }[] = [
   { type: 'logic', label: 'Logik', emoji: '🧩' },
@@ -133,6 +134,8 @@ export default function ExerciseOverview({
           </div>
         )}
       </section>
+
+      <WeeklyChallengeCard />
 
       <section className="mb-8">
         <h2 className="text-lg font-bold text-gray-800 mb-3">Zusätzlich möchte ich trainieren</h2>
