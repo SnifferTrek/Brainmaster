@@ -89,9 +89,11 @@ function makeRound(kind: RoundKind, d: number): Round {
       const nums = new Set<number>([count]);
       while (nums.size < 4) nums.add(Math.max(1, count + rnd(-2, 2)));
       return {
-        kind, title: 'Felder zählen', hint: 'Wie viele Felder leuchten?',
+        kind,
+        title: 'Felder zählen',
+        hint: 'Merke dir, welche Felder leuchten!',
         show: { type: 'grid', size, cells },
-        question: 'Wie viele Felder waren markiert?',
+        question: 'Wie viele Felder leuchten?',
         ...withAnswer(String(count), [...nums].map(String)),
       };
     }
