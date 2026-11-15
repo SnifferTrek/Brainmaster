@@ -103,6 +103,33 @@ export function getRecommendation(progress: UserProgress): Recommendation {
   return { exercises, done, next };
 }
 
+export interface DailyGoalStatus {
+  total: number;
+  done: number;
+  reached: boolean;
+}
+
+/** Tagesziel = alle geplanten Module bzw. Tages-Empfehlungen mindestens einmal heute. */
+export function getDailyGoalStatus(progress: UserProgress): DailyGoalStatus {
+  const iqPlan = getTrainingPlan();
+  const today = getTodayProgress().exercisesCompleted;
+  let targets: ExerciseType[];
+
+  if (iqPlan?.planModules?.length) {
+    targets = [...new Set(iqPlan.planModules.filter(t => ALL.includes(t)))];
+  } else {
+    targets = getRecommendation(progress).exercises;
+  }
+
+  const done = targets.filter(t => today.includes(t)).length;
+  const total = targets.length;
+  return {
+    total,
+    done,
+    reached: total > 0 && done >= total,
+  };
+}
+
 /** Übungstypen aus IQ-Analyse / Trainingsziel — nur diese erscheinen unter «Für dich vorbereitet». */
 export function getPreparedExerciseTypes(progress: UserProgress): ExerciseType[] {
   const iqPlan = getTrainingPlan();

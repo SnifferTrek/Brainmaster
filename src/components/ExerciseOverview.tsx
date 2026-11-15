@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ExerciseType, UserProgress } from '../types';
 import { getPlanModules, togglePlanModule, isPlanModuleSelected } from '../utils/iqTrainingPlan';
 import { effectiveLevelHint, getEffectiveLevelInfo } from '../utils/trainingLevel';
-import { getPreparedExerciseTypes } from '../utils/trainingPlan';
+import { getDailyGoalStatus, getPreparedExerciseTypes } from '../utils/trainingPlan';
 import { StartScreenBrand } from './BrainLogo';
 
 const CATEGORIES: { type: ExerciseType; label: string; emoji: string }[] = [
@@ -73,6 +73,7 @@ export default function ExerciseOverview({
   };
 
   const preparedCols = Math.max(preparedTabs.length, 1);
+  const dailyGoal = useMemo(() => getDailyGoalStatus(progress), [progress]);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 pb-28">
@@ -94,6 +95,16 @@ export default function ExerciseOverview({
         <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
           {levelHint}
         </p>
+      )}
+
+      {dailyGoal.reached && (
+        <div className="mb-4 rounded-2xl border-2 border-green-300 bg-green-50 px-4 py-4 text-center">
+          <p className="text-lg font-bold text-green-900">Tagesziel erreicht</p>
+          <p className="text-sm text-green-800 mt-1">
+            {dailyGoal.done}/{dailyGoal.total} Übungen für heute erledigt — super!
+          </p>
+          <p className="text-xs text-green-700 mt-2">Optional: weiter trainieren oder für heute pausieren.</p>
+        </div>
       )}
 
       <section className="mb-8">
@@ -148,10 +159,17 @@ export default function ExerciseOverview({
       <button
         type="button"
         onClick={onStart}
-        className="w-full mb-6 py-5 rounded-2xl bg-gradient-to-r from-primary-600 to-accent-600 text-white font-extrabold text-xl shadow-lg hover:shadow-xl transition-shadow"
+        className={`w-full py-5 rounded-2xl text-white font-extrabold text-xl shadow-lg hover:shadow-xl transition-shadow ${
+          dailyGoal.reached
+            ? 'mb-3 bg-gray-800 hover:bg-gray-900'
+            : 'mb-6 bg-gradient-to-r from-primary-600 to-accent-600'
+        }`}
       >
-        Übungen starten
+        {dailyGoal.reached ? 'Weiterlernen' : 'Übungen starten'}
       </button>
+      {dailyGoal.reached && (
+        <p className="text-xs text-center text-gray-500 mb-6">Zusatzübungen zählen fürs Tagesziel nicht mehr — sind freiwillig.</p>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <button type="button" onClick={onShowPlan} className="card py-4 text-center font-semibold text-gray-700 hover:bg-gray-50">

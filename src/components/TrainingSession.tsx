@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AchievementId, GameResult, UserProgress } from '../types';
-import { getDifficulty, updateProgressWithResult, checkAndUnlockAchievements } from '../utils/storage';
+import { getDifficulty, getProgress, updateProgressWithResult, checkAndUnlockAchievements } from '../utils/storage';
+import { getDailyGoalStatus } from '../utils/trainingPlan';
 import {
   buildSessionConfig,
   exerciseLabel,
@@ -126,9 +127,15 @@ export default function TrainingSession({ progress, onProgress, onExit, onNewAch
 
   if (phase === 'summary') {
     const totalPts = rounds.reduce((s, r) => s + r.result.score, 0);
+    const dailyGoal = getDailyGoalStatus(getProgress());
     return (
       <div className="max-w-lg mx-auto px-4 py-8 pb-28 space-y-4">
         <h1 className="text-2xl font-bold text-gray-800 text-center">Session abgeschlossen</h1>
+        {dailyGoal.reached && (
+          <div className="rounded-xl border-2 border-green-300 bg-green-50 px-4 py-3 text-center text-sm font-semibold text-green-900">
+            Tagesziel erreicht — {dailyGoal.done}/{dailyGoal.total} für heute
+          </div>
+        )}
         <p className="text-center text-gray-500 text-sm">{planLine}</p>
         <div className="card text-center">
           <div className="text-4xl font-bold text-primary-600">{totalPts}</div>
@@ -151,6 +158,9 @@ export default function TrainingSession({ progress, onProgress, onExit, onNewAch
   }
 
   if (phase === 'round-result' && lastResult) {
+    const dailyGoal = getDailyGoalStatus(getProgress());
+    const sessionPlanDone = rounds.length >= totalPlanned;
+
     return (
       <div className="max-w-lg mx-auto px-4 py-8 pb-28 space-y-4">
         <div className="flex justify-between items-center text-sm text-gray-500">
@@ -174,12 +184,26 @@ export default function TrainingSession({ progress, onProgress, onExit, onNewAch
             <p className="text-sm text-amber-800 mt-1">Dein Plan war {config.budgetMinutes} Minuten.</p>
           </div>
         )}
-        {rounds.length < totalPlanned && (
+        {(dailyGoal.reached || sessionPlanDone) && (
+          <div className="card bg-green-50 border-2 border-green-300 text-center py-4">
+            <p className="text-lg font-bold text-green-900">
+              {dailyGoal.reached ? 'Tagesziel erreicht' : 'Session-Plan geschafft'}
+            </p>
+            <p className="text-sm text-green-800 mt-1">
+              {dailyGoal.reached
+                ? `${dailyGoal.done}/${dailyGoal.total} Übungen für heute erledigt.`
+                : `${totalPlanned}/${totalPlanned} Übungen dieser Session abgeschlossen.`}
+            </p>
+          </div>
+        )}
+        {!dailyGoal.reached && rounds.length < totalPlanned && (
           <p className="text-center text-sm text-primary-800 font-semibold">
             Noch {totalPlanned - rounds.length} von {totalPlanned} Übung(en) im Plan
           </p>
         )}
-        <p className="text-center text-gray-700 font-medium">Willst du weiterfahren?</p>
+        <p className="text-center text-gray-700 font-medium">
+          {dailyGoal.reached || sessionPlanDone ? 'Möchtest du trotzdem weiterlernen?' : 'Willst du weiterfahren?'}
+        </p>
         <button
           type="button"
           onClick={() => {
@@ -188,14 +212,16 @@ export default function TrainingSession({ progress, onProgress, onExit, onNewAch
           }}
           className="w-full py-4 rounded-xl bg-primary-600 text-white font-bold text-lg"
         >
-          {timeUp
-            ? 'Trotzdem weiterfahren'
-            : rounds.length < totalPlanned
-              ? `Weiter — Übung ${rounds.length + 1}/${totalPlanned}`
-              : 'Nächste Übung (Zusatz)'}
+          {dailyGoal.reached || sessionPlanDone
+            ? 'Weiterlernen'
+            : timeUp
+              ? 'Trotzdem weiterfahren'
+              : rounds.length < totalPlanned
+                ? `Weiter — Übung ${rounds.length + 1}/${totalPlanned}`
+                : 'Nächste Übung (Zusatz)'}
         </button>
         <button type="button" onClick={endSession} className="w-full py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold">
-          Session beenden
+          {dailyGoal.reached ? 'Fertig für heute' : 'Session beenden'}
         </button>
       </div>
     );
