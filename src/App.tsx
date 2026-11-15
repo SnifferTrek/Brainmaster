@@ -27,6 +27,7 @@ import Onboarding from './components/Onboarding';
 import { isOnboardingDone } from './utils/onboarding';
 import { applyPlacementLevel } from './utils/trainingLevel';
 import Settings from './components/Settings';
+import TabBar, { isTabView } from './components/TabBar';
 import { getRecommendation } from './utils/trainingPlan';
 import { getTrainingPlan } from './utils/iqTrainingPlan';
 
@@ -37,14 +38,6 @@ const EXERCISE_VIEWS: ExerciseType[] = ['logic', 'memory', 'math', 'words'];
 function defaultHubType(): ExerciseType {
   return getRecommendation(getProgress()).next ?? 'logic';
 }
-
-const TABS: { view: View; label: string; icon: string }[] = [
-  { view: 'dashboard', label: 'Start', icon: '🏠' },
-  { view: 'plan', label: 'Plan', icon: '🎯' },
-  { view: 'statistics', label: 'Statistik', icon: '📊' },
-  { view: 'achievements', label: 'Erfolge', icon: '🏆' },
-  { view: 'settings', label: 'Einstellungen', icon: '⚙️' },
-];
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -246,7 +239,7 @@ function App() {
     setCurrentView('dashboard');
   }, []);
 
-  const isTab = TABS.some(t => t.view === currentView);
+  const isTab = isTabView(currentView);
 
   const switchTab = useCallback((view: View) => {
     setCurrentView(view);
@@ -413,43 +406,7 @@ function App() {
         ) : null}
       </div>
 
-      {isTab && (
-        <div
-          className="fixed bottom-0 inset-x-0 z-40 flex justify-center pointer-events-none"
-          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 10px)' }}
-        >
-          <nav
-            className="pointer-events-auto flex w-[calc(100%-1.25rem)] max-w-lg items-stretch justify-between gap-0.5 rounded-[1.75rem] border border-gray-200/80 bg-white/92 px-1.5 py-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] backdrop-blur-xl"
-            aria-label="Hauptnavigation"
-          >
-            {TABS.map(t => {
-              const active = currentView === t.view;
-              return (
-                <button
-                  key={t.view}
-                  type="button"
-                  onClick={() => switchTab(t.view)}
-                  aria-current={active ? 'page' : undefined}
-                  className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-2 transition-colors duration-200 ${
-                    active ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:text-gray-800'
-                  }`}
-                >
-                  <span className="text-[1.15rem] leading-none opacity-90" aria-hidden>
-                    {t.icon}
-                  </span>
-                  <span
-                    className={`max-w-full truncate text-center text-[9px] font-medium leading-tight tracking-tight sm:text-[10px] ${
-                      active ? 'text-gray-900' : 'text-gray-500'
-                    }`}
-                  >
-                    {t.label}
-                  </span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-      )}
+      {isTab && <TabBar currentView={currentView} onSelect={view => switchTab(view)} />}
     </div>
   );
 }
