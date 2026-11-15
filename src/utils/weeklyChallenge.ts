@@ -1,3 +1,5 @@
+import { getActiveWeeklyTasks, weeklyTasksCatalog } from './weeklyTaskCatalog';
+
 const STORAGE_KEY = 'brainmaster_weekly_challenge';
 
 export interface WeeklyChallengeTask {
@@ -5,59 +7,11 @@ export interface WeeklyChallengeTask {
   title: string;
   hint: string;
   emoji: string;
+  category?: string;
 }
 
-/** Rotierende Impulse für Körper, Alltag & Sprache — nicht automatisch messbar, Nutzer markiert selbst. */
-export const WEEKLY_TASKS: WeeklyChallengeTask[] = [
-  {
-    id: 'words5',
-    title: '5 Wörter in einer anderen Sprache',
-    hint: 'z. B. Vokabeln notieren oder flüstern beim Spazieren',
-    emoji: '🗣️',
-  },
-  {
-    id: 'new-route',
-    title: 'Einen anderen Weg fahren oder gehen',
-    hint: 'Neue Route zur Arbeit, zum Einkaufen oder Spaziergang',
-    emoji: '🛤️',
-  },
-  {
-    id: 'no-phone-walk',
-    title: '10 Minuten spazieren ohne Handy',
-    hint: 'Bewusst wahrnehmen: Geräusche, Gerüche, Richtungen',
-    emoji: '🚶',
-  },
-  {
-    id: 'explain',
-    title: 'Einem Kind etwas Einfaches erklären',
-    hint: 'Oder einem Freund ein Konzept in 3 Sätzen',
-    emoji: '💬',
-  },
-  {
-    id: 'write-hand',
-    title: 'Eine Notiz handschriftlich schreiben',
-    hint: 'Einkaufsliste, Tagebuch oder Postkarte',
-    emoji: '✍️',
-  },
-  {
-    id: 'music-focus',
-    title: 'Ein Lied aktiv anhören',
-    hint: 'Text oder Instrumente bewusst erkennen',
-    emoji: '🎧',
-  },
-  {
-    id: 'cook-new',
-    title: 'Ein neues Rezept oder Zutat ausprobieren',
-    hint: 'Kleine Abwandlung reicht',
-    emoji: '🍳',
-  },
-  {
-    id: 'gratitude',
-    title: '3 Dinge aufschreiben, die gut liefen',
-    hint: 'Fördert Aufmerksamkeit und Positivität',
-    emoji: '📝',
-  },
-];
+/** @deprecated Nutze weeklyTasksCatalog aus weeklyTaskCatalog.ts — Export für Abwärtskompatibilität */
+export const WEEKLY_TASKS: WeeklyChallengeTask[] = weeklyTasksCatalog;
 
 export interface WeeklyChallengeState {
   weekKey: string;
@@ -88,17 +42,31 @@ function saveState(state: WeeklyChallengeState): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+function findTaskById(taskId: string): WeeklyChallengeTask | undefined {
+  return weeklyTasksCatalog.find(t => t.id === taskId);
+}
+
 function pickTaskForWeek(weekKey: string): WeeklyChallengeTask {
+  const pool = getActiveWeeklyTasks();
+  const list = pool.length > 0 ? pool : weeklyTasksCatalog;
   let hash = 0;
   for (let i = 0; i < weekKey.length; i++) hash = (hash * 31 + weekKey.charCodeAt(i)) >>> 0;
-  return WEEKLY_TASKS[hash % WEEKLY_TASKS.length];
+  return list[hash % list.length];
 }
 
 export function getCurrentWeeklyChallenge(): { weekKey: string; task: WeeklyChallengeTask; completed: boolean } {
   const weekKey = getISOWeekKey();
   const stored = loadState();
+  const pool = getActiveWeeklyTasks();
+  const poolIds = new Set(pool.map(t => t.id));
+
   if (stored?.weekKey === weekKey) {
-    const task = WEEKLY_TASKS.find(t => t.id === stored.taskId) ?? pickTaskForWeek(weekKey);
+    const fromStored = findTaskById(stored.taskId);
+    const task =
+      fromStored && poolIds.has(fromStored.id) ? fromStored : pickTaskForWeek(weekKey);
+    if (fromStored && !poolIds.has(fromStored.id)) {
+      saveState({ weekKey, taskId: task.id, completedAt: stored.completedAt });
+    }
     return { weekKey, task, completed: !!stored.completedAt };
   }
   const task = pickTaskForWeek(weekKey);
@@ -121,4 +89,18 @@ export function toggleWeeklyChallengeDone(): boolean {
 export function formatWeekLabel(weekKey: string): string {
   const week = weekKey.split('-W')[1] ?? '';
   return week ? `Kalenderwoche ${parseInt(week, 10)}` : weekKey;
+}
+
+/** Nach Änderung der Häkchen: Woche neu zuordnen, wenn aktuelle Aufgabe deaktiviert wurde. */
+export function refreshWeeklyChallengeAfterCatalogChange(): void {
+  const weekKey = getISOWeekKey();
+  const stored = loadState();
+  const pool = getActiveWeeklyTasks();
+  if (pool.length === 0) return;
+  if (stored?.weekKey === weekKey) {
+    if (!pool.some(t => t.id === stored.taskId)) {
+      const task = pickTaskForWeek(weekKey);
+      saveState({ weekKey, taskId: task.id, completedAt: null });
+    }
+  }
 }

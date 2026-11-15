@@ -9,7 +9,8 @@ import {
   WEEKDAY_LABELS,
   isNativeNotificationsAvailable,
 } from '../utils/weeklyNotifications';
-import { WEEKLY_TASKS } from '../utils/weeklyChallenge';
+import WeeklyTaskCatalog from './WeeklyTaskCatalog';
+import { refreshWeeklyChallengeAfterCatalogChange } from '../utils/weeklyChallenge';
 import { NAME_KEY, buildProfile } from '../utils/profile';
 import { getProfile } from '../utils/social';
 
@@ -179,20 +180,15 @@ export default function Settings({
             {showTaskList ? 'Liste der Wochenaufgaben ausblenden' : 'Liste aller Wochenaufgaben anzeigen'}
           </button>
           {showTaskList && (
-            <ul className="mt-3 space-y-2 text-sm text-gray-700 max-h-56 overflow-y-auto">
-              {WEEKLY_TASKS.map(t => (
-                <li key={t.id} className="flex gap-2 items-start border-b border-gray-100 pb-2">
-                  <span>{t.emoji}</span>
-                  <span>
-                    <span className="font-medium">{t.title}</span>
-                    <span className="block text-xs text-gray-500">{t.hint}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <WeeklyTaskCatalog
+              onSelectionChange={() => {
+                refreshWeeklyChallengeAfterCatalogChange();
+                syncWeeklyNotification().catch(() => {});
+              }}
+            />
           )}
           <p className="text-[10px] text-gray-400 mt-2">
-            Pro Kalenderwoche erscheint eine zufällige Aufgabe aus dieser Liste (Rotation).
+            Pro Kalenderwoche eine Aufgabe aus den <strong className="font-medium">aktivierten</strong> Ideen.
           </p>
         </div>
       </section>
