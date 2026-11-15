@@ -357,7 +357,7 @@ function App() {
         />
       )}
 
-      <div className={isTab ? 'pb-[calc(5.5rem+env(safe-area-inset-bottom))]' : ''}>
+      <div className={isTab ? 'pb-[calc(6.25rem+env(safe-area-inset-bottom))]' : ''}>
         {currentView === 'dashboard' ? (
           <ExerciseOverview
             type={exerciseHub}
@@ -414,40 +414,41 @@ function App() {
       </div>
 
       {isTab && (
-        <nav
-          className="fixed bottom-0 inset-x-0 z-40 bg-white border-t-2 border-gray-200 shadow-[0_-6px_20px_rgba(0,0,0,0.08)]"
-          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}
+        <div
+          className="fixed bottom-0 inset-x-0 z-40 flex justify-center pointer-events-none"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 10px)' }}
         >
-          <div className="max-w-xl mx-auto grid grid-cols-5 px-1 pt-1">
+          <nav
+            className="pointer-events-auto flex w-[calc(100%-1.25rem)] max-w-lg items-stretch justify-between gap-0.5 rounded-[1.75rem] border border-gray-200/80 bg-white/92 px-1.5 py-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] backdrop-blur-xl"
+            aria-label="Hauptnavigation"
+          >
             {TABS.map(t => {
               const active = currentView === t.view;
               return (
                 <button
                   key={t.view}
+                  type="button"
                   onClick={() => switchTab(t.view)}
                   aria-current={active ? 'page' : undefined}
-                  className={`relative flex flex-col items-center gap-0.5 py-2.5 px-1.5 rounded-2xl transition-all ${
-                    active
-                      ? 'text-primary-800 bg-primary-100 shadow-md ring-2 ring-primary-500 font-extrabold'
-                      : 'text-gray-500 font-semibold hover:text-gray-800 hover:bg-gray-50 text-[10px] sm:text-xs'
-                  } ${active ? 'text-[11px] sm:text-xs' : ''}`}
+                  className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-2 transition-colors duration-200 ${
+                    active ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:text-gray-800'
+                  }`}
                 >
-                  {active && (
-                    <span className="absolute inset-x-2 -top-px h-1 rounded-full bg-primary-600" />
-                  )}
-                  <span
-                    className={`text-lg sm:text-xl transition-transform ${
-                      active ? 'scale-125 drop-shadow-sm' : ''
-                    }`}
-                  >
+                  <span className="text-[1.15rem] leading-none opacity-90" aria-hidden>
                     {t.icon}
                   </span>
-                  <span className="leading-tight text-center">{t.label}</span>
+                  <span
+                    className={`max-w-full truncate text-center text-[9px] font-medium leading-tight tracking-tight sm:text-[10px] ${
+                      active ? 'text-gray-900' : 'text-gray-500'
+                    }`}
+                  >
+                    {t.label}
+                  </span>
                 </button>
               );
             })}
-          </div>
-        </nav>
+          </nav>
+        </div>
       )}
     </div>
   );
