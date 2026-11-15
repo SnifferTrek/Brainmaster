@@ -18,13 +18,6 @@ const CATEGORIES: { type: ExerciseType; label: string; emoji: string }[] = [
   { type: 'words', label: 'Wortspiele', emoji: '📝' },
 ];
 
-const PREPARED_TITLE: Record<ExerciseType, string> = {
-  logic: 'Für dich vorbereitet: Logik',
-  memory: 'Für dich vorbereitet: Gedächtnis',
-  math: 'Für dich vorbereitet: Kopfrechnen',
-  words: 'Für dich vorbereitet: Wortspiele',
-};
-
 const DRILLS: Record<ExerciseType, DrillCard[]> = {
   logic: [
     { id: 'sequence', title: 'Zahlenfolgen', subtitle: 'Muster erkennen', emoji: '🔢' },
@@ -46,6 +39,25 @@ const DRILLS: Record<ExerciseType, DrillCard[]> = {
   ],
 };
 
+const TAB_BASE =
+  'flex min-h-[4.25rem] flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-center text-[10px] font-semibold leading-tight transition-all sm:text-xs';
+
+function tabSingle(active: boolean) {
+  return `${TAB_BASE} ${
+    active
+      ? 'bg-primary-100 text-primary-900 ring-2 ring-primary-500 shadow-sm'
+      : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+  }`;
+}
+
+function tabMulti(marked: boolean) {
+  return `${TAB_BASE} ${
+    marked
+      ? 'bg-primary-100 text-primary-900 ring-2 ring-primary-500 shadow-sm'
+      : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+  }`;
+}
+
 interface ExerciseOverviewProps {
   type: ExerciseType;
   progress: UserProgress;
@@ -53,24 +65,6 @@ interface ExerciseOverviewProps {
   onStart: () => void;
   onShowPlan: () => void;
   onStartIQ: () => void;
-}
-
-function PlanCircle({ selected, onToggle }: { selected: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold shadow-sm transition-colors ${
-        selected
-          ? 'bg-primary-600 border-primary-600 text-white'
-          : 'bg-white border-gray-300 text-gray-300 hover:border-primary-400'
-      }`}
-      aria-label={selected ? 'Aus Plan entfernen' : 'Zum Plan hinzufügen'}
-      aria-pressed={selected}
-    >
-      {selected ? '✓' : ''}
-    </button>
-  );
 }
 
 export default function ExerciseOverview({
@@ -83,14 +77,13 @@ export default function ExerciseOverview({
 }: ExerciseOverviewProps) {
   const [, bump] = useState(0);
   const level = progress.difficulty[type].level;
-  const selected = isPlanModuleSelected(type);
   const levelInfo = getEffectiveLevelInfo();
   const levelHint = effectiveLevelHint(levelInfo);
 
   const refresh = useCallback(() => bump(n => n + 1), []);
 
-  const togglePlan = () => {
-    togglePlanModule(type);
+  const toggleExtra = (t: ExerciseType) => {
+    togglePlanModule(t);
     refresh();
   };
 
@@ -98,7 +91,7 @@ export default function ExerciseOverview({
     <div className="max-w-4xl mx-auto px-4 py-6 pb-28">
       <header className="mb-4">
         <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-600 to-accent-600 bg-clip-text text-transparent">
-          🧠 Gehirntraining
+          Gehirntraining
         </h1>
         <div className="flex gap-2 mt-3 text-center text-xs">
           <span className="flex-1 card py-2">
@@ -118,47 +111,59 @@ export default function ExerciseOverview({
         </p>
       )}
 
-      <div className="grid grid-cols-4 gap-1.5 mb-5">
-        {CATEGORIES.map(cat => {
-          const active = cat.type === type;
-          return (
+      <section className="mb-8">
+        <h2 className="text-lg font-bold text-gray-800 mb-3">Für dich vorbereitet</h2>
+        <div className="grid grid-cols-4 gap-2 mb-4">
+          {CATEGORIES.map(cat => (
             <button
               key={cat.type}
               type="button"
               onClick={() => onChangeCategory(cat.type)}
-              className={`rounded-xl py-2 px-1 text-center text-[10px] sm:text-xs font-semibold transition-all ${
-                active
-                  ? 'bg-primary-100 text-primary-900 ring-2 ring-primary-500 shadow-sm'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}
+              aria-pressed={cat.type === type}
+              className={tabSingle(cat.type === type)}
             >
-              <span className="text-base block">{cat.emoji}</span>
-              {cat.label}
+              <span className="text-lg leading-none">{cat.emoji}</span>
+              <span className="w-full truncate">{cat.label}</span>
             </button>
-          );
-        })}
-      </div>
+          ))}
+        </div>
 
-      <h2 className="text-xl font-bold text-gray-800 mb-1">{PREPARED_TITLE[type]}</h2>
-      <p className="text-gray-500 text-sm mb-6">
-        Stufe {level} ({getDifficultyLabel(level)}) · Kreis unten rechts anklicken für Tagesplan
-      </p>
+        <p className="text-gray-500 text-sm mb-4">
+          {CATEGORIES.find(c => c.type === type)?.label} · Stufe {level} ({getDifficultyLabel(level)})
+        </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
-        {DRILLS[type].map(drill => (
-          <div
-            key={drill.id}
-            className="card relative text-left p-4 pr-12 min-h-[88px]"
-          >
-            <span className="text-2xl">{drill.emoji}</span>
-            <div className="font-semibold text-gray-800 mt-1">{drill.title}</div>
-            <p className="text-xs text-gray-500">{drill.subtitle}</p>
-            <div className="absolute bottom-3 right-3">
-              <PlanCircle selected={selected} onToggle={togglePlan} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {DRILLS[type].map(drill => (
+            <div key={drill.id} className="card text-left p-4 min-h-[88px]">
+              <span className="text-2xl">{drill.emoji}</span>
+              <div className="font-semibold text-gray-800 mt-1">{drill.title}</div>
+              <p className="text-xs text-gray-500">{drill.subtitle}</p>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-lg font-bold text-gray-800 mb-3">Zusätzlich möchte ich trainieren</h2>
+        <p className="text-xs text-gray-500 mb-3">Mehrere Bereiche anklicken — alle Markierungen bleiben aktiv.</p>
+        <div className="grid grid-cols-4 gap-2">
+          {CATEGORIES.map(cat => {
+            const marked = isPlanModuleSelected(cat.type);
+            return (
+              <button
+                key={`extra-${cat.type}`}
+                type="button"
+                onClick={() => toggleExtra(cat.type)}
+                aria-pressed={marked}
+                className={tabMulti(marked)}
+              >
+                <span className="text-lg leading-none">{cat.emoji}</span>
+                <span className="w-full truncate">{cat.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
       <button
         type="button"
@@ -170,19 +175,19 @@ export default function ExerciseOverview({
 
       <div className="grid grid-cols-2 gap-3">
         <button type="button" onClick={onShowPlan} className="card py-4 text-center font-semibold text-gray-700 hover:bg-gray-50">
-          🎯 Plan
+          Plan
         </button>
         <button
           type="button"
           onClick={onStartIQ}
           className="card py-4 text-center font-semibold text-blue-800 bg-blue-50 border border-blue-100 hover:bg-blue-100"
         >
-          🧠 IQ-Test
+          IQ-Test
         </button>
       </div>
       {getPlanModules().length > 0 && (
         <p className="text-xs text-center text-gray-400 mt-4">
-          Im Plan: {getPlanModules().length} Modul(e) ausgewählt
+          Zusätzlich im Plan: {getPlanModules().length} Bereich(e)
         </p>
       )}
     </div>
