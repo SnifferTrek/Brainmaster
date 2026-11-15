@@ -14,11 +14,26 @@ export interface SessionRoundRecord {
 
 const SESSION_KEY = 'brainmaster_session_active';
 
+const ALL_TYPES: ExerciseType[] = ['logic', 'memory', 'math', 'words'];
+
 export function buildSessionConfig(progress: UserProgress): SessionConfig {
   const plan = getTrainingPlan();
   const rec = getRecommendation(progress);
   const budgetMinutes = plan?.dailyMinutes ?? 10;
-  const queue = rec.exercises.length > 0 ? [...rec.exercises] : (['logic', 'memory', 'math', 'words'] as ExerciseType[]);
+  let queue: ExerciseType[];
+
+  if (plan?.planModules?.length) {
+    queue = [...new Set(plan.planModules.filter(t => ALL_TYPES.includes(t)))];
+  } else {
+    const openToday = rec.exercises.filter(e => !rec.done.includes(e));
+    queue =
+      openToday.length > 0
+        ? openToday
+        : rec.exercises.length > 0
+          ? [...rec.exercises]
+          : [...ALL_TYPES];
+  }
+
   return { budgetMinutes, queue };
 }
 

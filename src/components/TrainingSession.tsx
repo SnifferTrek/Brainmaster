@@ -35,9 +35,17 @@ export default function TrainingSession({ progress, onProgress, onExit, onNewAch
   const budgetSec = config.budgetMinutes * 60;
   const [elapsedSec, setElapsedSec] = useState(0);
 
+  const totalPlanned = config.queue.length;
   const currentType = config.queue[queueIndex % config.queue.length];
   const plan = getTrainingPlan();
   const timeUp = !extendAfterTime && elapsedSec >= budgetSec;
+
+  const sessionExerciseIndex =
+    phase === 'exercise' ? Math.min(rounds.length + 1, totalPlanned) : Math.min(rounds.length, totalPlanned);
+  const onExtraRound = rounds.length >= totalPlanned;
+  const sessionProgressLabel = onExtraRound
+    ? `Zusatz · ${exerciseLabel(currentType)}`
+    : `Übung ${sessionExerciseIndex}/${totalPlanned}`;
 
   useEffect(() => {
     markSessionActive(true);
@@ -146,7 +154,9 @@ export default function TrainingSession({ progress, onProgress, onExit, onNewAch
     return (
       <div className="max-w-lg mx-auto px-4 py-8 pb-28 space-y-4">
         <div className="flex justify-between items-center text-sm text-gray-500">
-          <span>Session · noch {timeUp ? '0:00' : formatSessionTime(remainingSec)}</span>
+          <span>
+            {rounds.length}/{totalPlanned} erledigt · noch {timeUp ? '0:00' : formatSessionTime(remainingSec)}
+          </span>
           <button type="button" onClick={endSession} className="text-red-600 font-medium">
             Abbrechen
           </button>
@@ -164,6 +174,11 @@ export default function TrainingSession({ progress, onProgress, onExit, onNewAch
             <p className="text-sm text-amber-800 mt-1">Dein Plan war {config.budgetMinutes} Minuten.</p>
           </div>
         )}
+        {rounds.length < totalPlanned && (
+          <p className="text-center text-sm text-primary-800 font-semibold">
+            Noch {totalPlanned - rounds.length} von {totalPlanned} Übung(en) im Plan
+          </p>
+        )}
         <p className="text-center text-gray-700 font-medium">Willst du weiterfahren?</p>
         <button
           type="button"
@@ -173,7 +188,11 @@ export default function TrainingSession({ progress, onProgress, onExit, onNewAch
           }}
           className="w-full py-4 rounded-xl bg-primary-600 text-white font-bold text-lg"
         >
-          {timeUp ? 'Trotzdem weiterfahren' : 'Nächste Übung'}
+          {timeUp
+            ? 'Trotzdem weiterfahren'
+            : rounds.length < totalPlanned
+              ? `Weiter — Übung ${rounds.length + 1}/${totalPlanned}`
+              : 'Nächste Übung (Zusatz)'}
         </button>
         <button type="button" onClick={endSession} className="w-full py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold">
           Session beenden
@@ -182,14 +201,16 @@ export default function TrainingSession({ progress, onProgress, onExit, onNewAch
     );
   }
 
+  const sessionPct = totalPlanned > 0 ? Math.min(100, (rounds.length / totalPlanned) * 100) : 0;
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-4 pb-8">
-      <div className="flex justify-between items-center mb-4 text-sm">
-        <div>
-          <div className="font-semibold text-gray-800">Training-Session</div>
-          <div className="text-gray-500">{planLine}</div>
+      <div className="flex justify-between items-center mb-2 text-sm gap-3">
+        <div className="min-w-0">
+          <div className="font-semibold text-gray-800">{sessionProgressLabel}</div>
+          <div className="text-gray-500 truncate">{exerciseLabel(currentType)} · {planLine}</div>
         </div>
-        <div className="text-right">
+        <div className="text-right shrink-0">
           <div className={`font-mono font-bold ${remainingSec <= 60 && !extendAfterTime ? 'text-red-600' : 'text-primary-700'}`}>
             {extendAfterTime ? '∞' : formatSessionTime(remainingSec)}
           </div>
@@ -198,6 +219,22 @@ export default function TrainingSession({ progress, onProgress, onExit, onNewAch
           </button>
         </div>
       </div>
+      {!onExtraRound && totalPlanned > 1 && (
+        <div className="mb-4">
+          <div className="flex justify-between text-[11px] text-gray-500 mb-1">
+            <span>Fortschritt Session</span>
+            <span>
+              {rounds.length}/{totalPlanned} fertig
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-primary-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${sessionPct}%` }}
+            />
+          </div>
+        </div>
+      )}
       {renderGame()}
     </div>
   );
