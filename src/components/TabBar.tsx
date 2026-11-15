@@ -20,7 +20,12 @@ function TabIcon({ name, active }: { name: TabView; active: boolean }) {
     case 'dashboard':
       return (
         <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-          <path d="M4 10.2 12 3.8l8 6.4V19a1.2 1.2 0 0 1-1.2 1.2H15v-6.2H9V20.2H5.2A1.2 1.2 0 0 1 4 19v-8.8Z" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M12 4c-3.2 0-5.2 1.8-6.2 3.6-.4.9-.6 1.8-.6 2.7 0 .8.2 1.5.5 2.1-.9 1.1-1.3 2.5-1.3 4 0 2.8 1.7 5.1 4.3 6.1.5.2 1 .3 1.5.3.6 1.2 1.8 1.8 3.2 1.8 3.4 0 6.1-2.5 6.1-6.1 0-1.4-.4-2.6-1.2-3.7.7-1 1-2.3 1-3.7C20.1 7 17 4 12 4Z"
+            strokeWidth={w}
+            strokeLinejoin="round"
+          />
+          <path d="M12 4v16M9.5 10c1 .8 2.2 1.2 2.5 1.2s1.5-.4 2.5-1.2" strokeWidth={w * 0.85} strokeLinecap="round" />
         </svg>
       );
     case 'plan':

@@ -3,6 +3,7 @@ import type { ExerciseType, UserProgress } from '../types';
 import { getPlanModules, togglePlanModule, isPlanModuleSelected } from '../utils/iqTrainingPlan';
 import { effectiveLevelHint, getEffectiveLevelInfo } from '../utils/trainingLevel';
 import { getPreparedExerciseTypes } from '../utils/trainingPlan';
+import { StartScreenBrand } from './BrainLogo';
 
 const CATEGORIES: { type: ExerciseType; label: string; emoji: string }[] = [
   { type: 'logic', label: 'Logik', emoji: '🧩' },
@@ -76,10 +77,8 @@ export default function ExerciseOverview({
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 pb-28">
       <header className="mb-4">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-600 to-accent-600 bg-clip-text text-transparent">
-          Gehirntraining
-        </h1>
-        <div className="flex gap-2 mt-3 text-center text-xs">
+        <StartScreenBrand />
+        <div className="flex gap-2 mt-4 text-center text-xs">
           <span className="flex-1 card py-2">
             <span className="font-bold text-gray-800">⭐ {levelInfo.effective}</span>
             <span className="block text-gray-500">Übungsstufe</span>
