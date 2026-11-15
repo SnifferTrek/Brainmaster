@@ -1,6 +1,16 @@
 import type { UserProgress, ExerciseType } from '../types';
+import type { Category } from '../iq/questions';
 import { getTodayProgress } from './storage';
 import { getTrainingPlan } from './iqTrainingPlan';
+
+const CATEGORY_TO_EXERCISE: Record<Category, ExerciseType> = {
+  sequence: 'logic',
+  pattern: 'logic',
+  logic: 'logic',
+  analogy: 'words',
+  spatial: 'logic',
+  math: 'math',
+};
 
 export type GoalId = 'memory' | 'logic' | 'math' | 'words' | 'balanced' | 'weakness';
 
@@ -52,7 +62,11 @@ export function getRecommendation(progress: UserProgress): Recommendation {
   const today = getTodayProgress().exercisesCompleted;
   let exercises: ExerciseType[];
 
-  if (iqPlan && iqPlan.focusAreas.length > 0) {
+  if (iqPlan?.planModules && iqPlan.planModules.length > 0) {
+    const selected = iqPlan.planModules.filter(t => ALL.includes(t));
+    const rest = ALL.filter(t => !selected.includes(t));
+    exercises = [...selected, ...rest];
+  } else if (iqPlan && iqPlan.focusAreas.length > 0) {
     const primary = iqPlan.focusAreas[0];
     const focusExercise = primary
       ? ({ sequence: 'logic', pattern: 'logic', logic: 'logic', analogy: 'words', spatial: 'logic', math: 'math' } as const)[
@@ -87,4 +101,30 @@ export function getRecommendation(progress: UserProgress): Recommendation {
   const done = exercises.filter(e => today.includes(e));
   const next = exercises.find(e => !today.includes(e)) ?? null;
   return { exercises, done, next };
+}
+
+/** Übungstypen aus IQ-Analyse / Trainingsziel — nur diese erscheinen unter «Für dich vorbereitet». */
+export function getPreparedExerciseTypes(progress: UserProgress): ExerciseType[] {
+  const iqPlan = getTrainingPlan();
+  if (iqPlan?.focusAreas?.length) {
+    const types = iqPlan.focusAreas.map(c => CATEGORY_TO_EXERCISE[c]);
+    return [...new Set(types)].filter(t => ALL.includes(t));
+  }
+
+  const goal = getGoal();
+  if (goal && goal !== 'balanced' && goal !== 'weakness') {
+    return ALL.includes(goal) ? [goal] : ['logic'];
+  }
+
+  if (goal === 'weakness') {
+    const ranked = [...ALL].sort((a, b) => {
+      const ra = getSuccessRate(progress, a);
+      const rb = getSuccessRate(progress, b);
+      return (ra ?? -1) - (rb ?? -1);
+    });
+    return ranked.slice(0, 2);
+  }
+
+  const next = getRecommendation(progress).next;
+  return [next ?? 'logic'];
 }

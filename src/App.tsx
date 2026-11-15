@@ -28,7 +28,7 @@ import { isOnboardingDone } from './utils/onboarding';
 import { applyPlacementLevel } from './utils/trainingLevel';
 import Settings from './components/Settings';
 import TabBar, { isTabView } from './components/TabBar';
-import { getRecommendation } from './utils/trainingPlan';
+import { getPreparedExerciseTypes, getRecommendation } from './utils/trainingPlan';
 import { getTrainingPlan } from './utils/iqTrainingPlan';
 
 type View = 'dashboard' | 'plan' | 'statistics' | 'achievements' | 'settings' | 'iq' | 'session' | ExerciseType;
@@ -36,7 +36,8 @@ type View = 'dashboard' | 'plan' | 'statistics' | 'achievements' | 'settings' | 
 const EXERCISE_VIEWS: ExerciseType[] = ['logic', 'memory', 'math', 'words'];
 
 function defaultHubType(): ExerciseType {
-  return getRecommendation(getProgress()).next ?? 'logic';
+  const prepared = getPreparedExerciseTypes(getProgress());
+  return prepared[0] ?? getRecommendation(getProgress()).next ?? 'logic';
 }
 
 function App() {
