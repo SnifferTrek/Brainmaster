@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "ios:sync": "npm run build && cap sync ios",
-    "ios:open": "cap open ios"
+    "ios:open": "cap open ios",
+    "test:iq-items": "vitest run src/iq/iqItemQA.test.ts"
   },
   "dependencies": {
     "@capacitor/core": "^8.6.2",
@@ -32,6 +33,7 @@
     "postcss": "^8.5.32",
     "tailwindcss": "^4.3.4",
     "typescript": "~7.0.2",
-    "vite": "^8.3.6"
+    "vite": "^8.3.6",
+    "vitest": "^3.2.4"
   }
 }

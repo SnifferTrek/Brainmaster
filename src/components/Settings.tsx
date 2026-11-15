@@ -14,6 +14,8 @@ import { refreshWeeklyChallengeAfterCatalogChange } from '../utils/weeklyChallen
 import { consumeWeeklyCatalogFocus } from '../utils/weeklyCatalogFocus';
 import { NAME_KEY, buildProfile } from '../utils/profile';
 import { getProfile } from '../utils/social';
+import IQDemographicsCard from './IQDemographicsCard';
+import { SoundToggleButton } from './SoundToggle';
 
 interface SettingsProps {
   progress: UserProgress;
@@ -116,6 +118,8 @@ export default function Settings({
         <WeeklyTaskCatalog onSelectionChange={handleCatalogChange} />
       </section>
 
+      <IQDemographicsCard />
+
       <section className="card mb-4">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Training</h2>
         <div className="flex items-center justify-between gap-4 py-3 min-h-[56px]">
@@ -200,6 +204,16 @@ export default function Settings({
 
       <section className="card mb-4">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">App</h2>
+        <div className="flex items-center justify-between gap-4 py-3 min-h-[56px] border-b border-gray-100 mb-2">
+          <div>
+            <span className="font-medium text-gray-800 text-base block">Sounds</span>
+            <span className="text-xs text-gray-500">Ton-Feedback bei Übungen und Erfolgen</span>
+          </div>
+          <SoundToggleButton
+            className="w-12 h-12 rounded-full bg-gray-50 border border-gray-200 text-xl flex items-center justify-center active:scale-95 transition shrink-0"
+            style={undefined}
+          />
+        </div>
         <button
           type="button"
           onClick={onRepeatIntro}

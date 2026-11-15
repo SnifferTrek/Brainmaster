@@ -10,6 +10,8 @@ const CATEGORY_TO_EXERCISE: Record<Category, ExerciseType> = {
   analogy: 'words',
   spatial: 'logic',
   math: 'math',
+  working_memory: 'memory',
+  processing_speed: 'logic',
 };
 
 export type GoalId = 'memory' | 'logic' | 'math' | 'words' | 'balanced' | 'weakness';
@@ -68,11 +70,7 @@ export function getRecommendation(progress: UserProgress): Recommendation {
     exercises = [...selected, ...rest];
   } else if (iqPlan && iqPlan.focusAreas.length > 0) {
     const primary = iqPlan.focusAreas[0];
-    const focusExercise = primary
-      ? ({ sequence: 'logic', pattern: 'logic', logic: 'logic', analogy: 'words', spatial: 'logic', math: 'math' } as const)[
-          primary
-        ]
-      : 'logic';
+    const focusExercise: ExerciseType = primary ? CATEGORY_TO_EXERCISE[primary] : 'logic';
     const extras = (iqPlan.extraModules ?? []).filter(e => e !== focusExercise);
     const rest = ALL.filter(t => t !== focusExercise && !extras.includes(t));
     exercises = [focusExercise, ...extras, ...rest];

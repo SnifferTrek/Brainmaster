@@ -1,19 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CATEGORY_INFO, CATEGORY_ORDER, calcIQ, categoryScores, percentileFor, iqLabel,
-  loadHistory, saveResult, generateQuestions,
+  CATEGORY_INFO, CATEGORY_ORDER, baselineIdFromHistory, calcIQWithBand, categoryScores, percentileFor,
+  iqLabel, IQ_QUESTION_COUNT, GLOBAL_IQ_TIME_LIMIT_SEC, loadHistory, saveResult, generateQuestions,
+  questionTimeLimit,
 } from './questions';
-import type { AnswerRecord, Category, IQResult, Option, Question, ShapeSpec, Transform } from './questions';
+import type { AnswerRecord, Category, IQResult, Option, Question, Transform } from './questions';
+import { ShapeRenderer } from '../shapes/ShapeRenderer';
+import {
+  ageInterpretationHint, getAgeYears, isProfileEmpty, loadBrainmasterProfile,
+} from './demographics';
+import IQDemographicsCard from '../components/IQDemographicsCard';
 import { saveTrainingPlan, type TrainingPlanInput, type TrainingPlanSettings } from '../utils/iqTrainingPlan';
 import { applyIQTrainingLevel } from '../utils/trainingLevel';
 import { getReminderPrefs, setReminderEnabled as persistReminderEnabled } from '../utils/reminder';
 import type { ExerciseType } from '../types';
 
-type Stage = 'intro' | 'test' | 'result' | 'planTime' | 'planDone' | 'postNoPlan';
+type Stage = 'intro' | 'profile' | 'test' | 'result' | 'planTime' | 'planDone' | 'postNoPlan';
+type MemoryPhase = 'reveal' | 'recall';
 
 export type { TrainingPlanSettings, TrainingPlanInput };
-const INK = '#1e3a8a';
-const QUESTION_COUNT = 30;
 
 const TRAINING_TIMES = [
   { value: 5, label: '5 Min' },
@@ -22,59 +27,33 @@ const TRAINING_TIMES = [
   { value: 30, label: '30 Min' },
 ];
 
-function ShapeSvg({ s, box = 64 }: { s: ShapeSpec | null; box?: number }) {
-  if (!s) {
-    return (
-      <svg width={box} height={box} viewBox="0 0 64 64">
-        <rect x="4" y="4" width="56" height="56" rx="10" fill="#eff6ff" stroke="#93c5fd" strokeDasharray="5 4" strokeWidth="2" />
-        <text x="32" y="43" textAnchor="middle" fontSize="30" fontWeight="700" fill="#2563eb">?</text>
-      </svg>
-    );
-  }
-  const fill = s.fill === false ? 'none' : INK;
-  const props = { fill, stroke: INK, strokeWidth: 3, strokeLinejoin: 'round' as const };
-  const sz = s.size ?? 1;
-  let body;
-  if (s.kind === 'square' && s.n) {
-    const n = s.n, cell = 56 / Math.max(n, 3);
-    body = Array.from({ length: n }, (_, i) => (
-      <rect key={i} x={4 + i * cell + 1} y={32 - cell / 2} width={cell - 2} height={cell - 2} {...props} />
-    ));
-  } else if (s.kind === 'circle') body = <circle cx="32" cy="32" r="22" {...props} />;
-  else if (s.kind === 'square') body = <rect x="10" y="10" width="44" height="44" {...props} />;
-  else if (s.kind === 'diamond') body = <polygon points="32,6 58,32 32,58 6,32" {...props} />;
-  else if (s.kind === 'triangle') body = <polygon points="32,8 56,54 8,54" {...props} />;
-  else {
-    const pts = Array.from({ length: 10 }, (_, i) => {
-      const r = i % 2 ? 11 : 26, a = (Math.PI / 5) * i - Math.PI / 2;
-      return `${32 + r * Math.cos(a)},${33 + r * Math.sin(a)}`;
-    }).join(' ');
-    body = <polygon points={pts} {...props} />;
-  }
-  return (
-    <svg width={box} height={box} viewBox="0 0 64 64">
-      <g transform={`rotate(${s.rot ?? 0} 32 32) translate(32 32) scale(${sz}) translate(-32 -32)`}>{body}</g>
-    </svg>
-  );
-}
+const GLYPH_INK = '#1e3a8a';
 
 function GlyphSvg({ t, box = 96 }: { t: Transform; box?: number }) {
   return (
     <svg width={box} height={box} viewBox="0 0 100 100">
       <g transform={`rotate(${t.rot} 50 50) ${t.flip ? 'translate(100 0) scale(-1 1)' : ''}`}>
-        <polygon points="25,10 75,10 75,28 45,28 45,42 65,42 65,58 45,58 45,90 25,90" fill={INK} />
+        <polygon points="25,10 75,10 75,28 45,28 45,42 65,42 65,58 45,58 45,90 25,90" fill={GLYPH_INK} />
         <circle cx="31" cy="16" r="3" fill="#fbbf24" />
       </g>
     </svg>
   );
 }
 
-function isShape(o: Option): o is ShapeSpec { return typeof o === 'object' && 'kind' in o; }
+function isShape(o: Option): o is import('./questions').ShapeSpec {
+  return typeof o === 'object' && o !== null && 'kind' in o;
+}
 
 function OptionView({ o }: { o: Option }) {
   if (typeof o === 'string') return <span className="text-lg font-medium">{o}</span>;
-  if (isShape(o)) return <ShapeSvg s={o} />;
+  if (isShape(o)) return <ShapeRenderer s={o} />;
   return <GlyphSvg t={o} box={80} />;
+}
+
+function fmtGlobalTime(sec: number) {
+  const m = Math.floor(sec / 60);
+  const s = Math.ceil(sec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 function shuffleQ(qs: Question[]) {
@@ -150,13 +129,17 @@ async function shareResult(r: IQResult) {
   g.font = '800 190px sans-serif'; g.fillText(String(r.iq), W / 2, 280);
   g.font = '500 32px sans-serif'; g.fillText(`Geschätzter IQ · ${iqLabel(r.iq)}`, W / 2, 335);
   g.fillText(`Besser als ${r.percentile}% der Bevölkerung`, W / 2, 385);
+  const barW = 102;
   CATEGORY_ORDER.forEach((k, i) => {
-    const x = 90 + i * 164, y = 440;
-    g.fillStyle = 'rgba(255,255,255,0.2)'; g.fillRect(x, y, 140, 12);
-    g.fillStyle = '#fbbf24'; g.fillRect(x, y, (140 * r.categoryScores[k]) / 100, 12);
-    g.fillStyle = '#fff'; g.font = '600 22px sans-serif'; g.textAlign = 'left';
-    g.fillText(CATEGORY_INFO[k].short, x, y + 44);
-    g.font = '20px sans-serif'; g.fillText(`${r.categoryScores[k]}%`, x, y + 72);
+    const col = i % 4;
+    const row = Math.floor(i / 4);
+    const x = 48 + col * barW;
+    const y = 430 + row * 72;
+    g.fillStyle = 'rgba(255,255,255,0.2)'; g.fillRect(x, y, barW - 8, 10);
+    g.fillStyle = '#fbbf24'; g.fillRect(x, y, ((barW - 8) * r.categoryScores[k]) / 100, 10);
+    g.fillStyle = '#fff'; g.font = '600 18px sans-serif'; g.textAlign = 'left';
+    g.fillText(CATEGORY_INFO[k].short, x, y + 32);
+    g.font = '16px sans-serif'; g.fillText(`${r.categoryScores[k]}%`, x, y + 52);
   });
   g.textAlign = 'center'; g.font = '20px sans-serif'; g.fillStyle = 'rgba(255,255,255,0.7)';
   g.fillText(`${fmtDate(r.date)} · Schätzwert, kein klinischer IQ-Test`, W / 2, 600);
@@ -202,12 +185,22 @@ export default function IQTest({ onBack, onStartTraining, onSelectExercise, onOp
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [extraModules, setExtraModules] = useState<ExerciseType[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [showProfileForm, setShowProfileForm] = useState(false);
+  const [profileVersion, setProfileVersion] = useState(0);
+  const [memoryPhase, setMemoryPhase] = useState<MemoryPhase | null>(null);
+  const [globalLeft, setGlobalLeft] = useState(GLOBAL_IQ_TIME_LIMIT_SEC);
   const startedAt = useRef(0);
   const qStart = useRef(0);
   const locked = useRef(false);
+  const timedOutRef = useRef(false);
+
+  const profileAge = useMemo(() => getAgeYears(loadBrainmasterProfile()), [profileVersion, stage]);
 
   const cur = items[idx];
-  const limit = cur ? CATEGORY_INFO[cur.q.category].time : 0;
+  const categoryIndex = cur ? CATEGORY_ORDER.indexOf(cur.q.category) : 0;
+  const limit = cur
+    ? questionTimeLimit(cur.q.category, cur.q.difficulty, categoryIndex)
+    : 0;
 
   const weakAreas = useMemo(() => {
     if (!result) return [] as Category[];
@@ -215,25 +208,23 @@ export default function IQTest({ onBack, onStartTraining, onSelectExercise, onOp
     return sorted.slice(0, 2);
   }, [result]);
 
-  const answer = (choice: number | null) => {
-    if (locked.current || !cur) return;
-    locked.current = true;
-    const seconds = Math.min(limit, (Date.now() - qStart.current) / 1000);
-    const correct = choice !== null && cur.order[choice] === 0;
-    const rec: AnswerRecord = {
-      id: cur.q.id, category: cur.q.category, difficulty: cur.q.difficulty,
-      correct, timedOut: choice === null, seconds, limit,
-    };
-    const all = [...answers, rec];
-    if (idx + 1 < items.length) {
-      setAnswers(all);
-      setIdx(idx + 1);
-    } else {
-      const iq = calcIQ(all);
+  const completeTest = useCallback(
+    (all: AnswerRecord[], opts: { timedOutTest?: boolean } = {}) => {
+      const { iq, iqLow, iqHigh } = calcIQWithBand(all);
       const r: IQResult = {
-        id: String(Date.now()), date: new Date().toISOString(), iq, percentile: percentileFor(iq),
-        correct: all.filter(a => a.correct).length, total: all.length,
-        categoryScores: categoryScores(all), durationSec: Math.round((Date.now() - startedAt.current) / 1000),
+        id: String(Date.now()),
+        date: new Date().toISOString(),
+        iq,
+        iqLow,
+        iqHigh,
+        percentile: percentileFor(iq),
+        correct: all.filter(a => a.correct).length,
+        total: items.length,
+        questionsAnswered: all.length,
+        globalTimeLimitSec: GLOBAL_IQ_TIME_LIMIT_SEC,
+        timedOutTest: opts.timedOutTest ?? false,
+        categoryScores: categoryScores(all),
+        durationSec: Math.round((Date.now() - startedAt.current) / 1000),
       };
       saveResult(r);
       applyIQTrainingLevel(r.iq);
@@ -241,29 +232,105 @@ export default function IQTest({ onBack, onStartTraining, onSelectExercise, onOp
       setAnswers(all);
       setResult(r);
       setStage('result');
-    }
-  };
+    },
+    [items.length],
+  );
+
+  const answer = useCallback(
+    (choice: number | null, forceGlobalTimeout = false) => {
+      if (!cur) return;
+      if (locked.current && !forceGlobalTimeout) return;
+      locked.current = true;
+      const seconds = Math.min(limit, (Date.now() - qStart.current) / 1000);
+      const correct = choice !== null && cur.order[choice] === 0;
+      const rec: AnswerRecord = {
+        id: cur.q.id,
+        category: cur.q.category,
+        difficulty: cur.q.difficulty,
+        correct,
+        timedOut: choice === null,
+        seconds,
+        limit,
+      };
+      const all = [...answers, rec];
+      if (forceGlobalTimeout || timedOutRef.current) {
+        completeTest(all, { timedOutTest: true });
+        return;
+      }
+      if (idx + 1 < items.length) {
+        setAnswers(all);
+        setIdx(idx + 1);
+      } else {
+        completeTest(all, { timedOutTest: false });
+      }
+    },
+    [answers, completeTest, cur, idx, items.length, limit],
+  );
 
   const answerRef = useRef(answer);
   answerRef.current = answer;
 
   useEffect(() => {
-    if (stage !== 'test') return;
+    if (stage !== 'test' || !cur) return;
     locked.current = false;
+    if (cur.q.memoryRecall) {
+      setMemoryPhase('reveal');
+      const showMs = cur.q.memoryRecall.showMs;
+      const revealTimer = setTimeout(() => {
+        setMemoryPhase('recall');
+        qStart.current = Date.now();
+        setLeft(limit);
+      }, showMs);
+      return () => clearTimeout(revealTimer);
+    }
+    setMemoryPhase(null);
     qStart.current = Date.now();
     setLeft(limit);
+  }, [stage, idx, cur?.q.id]);
+
+  useEffect(() => {
+    if (stage !== 'test' || !cur) return;
+    if (cur.q.memoryRecall && memoryPhase === 'reveal') return;
     const t = setInterval(() => {
       const rem = limit - (Date.now() - qStart.current) / 1000;
       if (rem <= 0) { clearInterval(t); setLeft(0); answerRef.current(null); } else setLeft(rem);
     }, 100);
     return () => clearInterval(t);
-  }, [stage, idx, limit]);
+  }, [stage, idx, limit, memoryPhase, cur?.q.id]);
 
-  const start = () => {
+  useEffect(() => {
+    if (stage !== 'test') return;
+    const started = startedAt.current;
+    const tick = () => {
+      const rem = GLOBAL_IQ_TIME_LIMIT_SEC - (Date.now() - started) / 1000;
+      if (rem <= 0) {
+        setGlobalLeft(0);
+        if (!locked.current && !timedOutRef.current) {
+          timedOutRef.current = true;
+          answerRef.current(null, true);
+        }
+      } else setGlobalLeft(rem);
+    };
+    tick();
+    const t = setInterval(tick, 200);
+    return () => clearInterval(t);
+  }, [stage, idx]);
+
+  const beginTest = () => {
     setItems(createQuestions());
     setIdx(0); setAnswers([]); setResult(null); setShareMsg('');
+    timedOutRef.current = false;
+  setGlobalLeft(GLOBAL_IQ_TIME_LIMIT_SEC);
     startedAt.current = Date.now();
     setStage('test');
+  };
+
+  const start = () => {
+    if (history.length === 0 && isProfileEmpty(loadBrainmasterProfile())) {
+      setStage('profile');
+      return;
+    }
+    beginTest();
   };
 
   const abort = () => {
@@ -294,8 +361,18 @@ export default function IQTest({ onBack, onStartTraining, onSelectExercise, onOp
     setExtraModules(prev => (prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]));
   };
 
+  if (stage === 'profile') {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-6">
+        <button onClick={() => setStage('intro')} className="text-slate-500 hover:text-slate-800 text-sm mb-3">← Zurück</button>
+        <MotionProfileIntro onSkip={beginTest} onSaved={() => setProfileVersion(v => v + 1)} />
+      </div>
+    );
+  }
+
   if (stage === 'intro') {
     const hasHistory = history.length > 0;
+    const repeatHint = history.length >= 1;
     return (
       <div className="max-w-xl mx-auto px-4 min-h-[calc(100vh-6rem)] flex flex-col">
         <button onClick={onBack} className="text-slate-500 hover:text-slate-800 text-sm mb-3 shrink-0">← Zurück</button>
@@ -305,15 +382,34 @@ export default function IQTest({ onBack, onStartTraining, onSelectExercise, onOp
             🧠 Test starten
           </button>
 
-          <div className="flex items-center justify-center gap-4 text-sm text-slate-600 mb-3">
-            <span>⏱️ ~15 Min</span>
-            <span>📋 {QUESTION_COUNT} Fragen</span>
-            <span>🎯 6 Bereiche</span>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-slate-600 mb-3">
+            <span>⏱️ {GLOBAL_IQ_TIME_LIMIT_SEC / 60} Min Gesamt</span>
+            <span>📋 ca. {IQ_QUESTION_COUNT} Fragen</span>
+            <span>🎯 8 Bereiche</span>
           </div>
 
           <p className="text-xs text-slate-500">
-            Schnelle richtige Antworten bringen mehr Punkte. Keine Hilfsmittel — Schätzwert, kein klinischer Test.
+            Ein großer Gesamt-Timer läuft mit — danach endet der Test mit Teilergebnis. Schnelle richtige Antworten bringen mehr Punkte. Schätzwert, kein klinischer Test.
           </p>
+
+          {repeatHint && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-3">
+              Hinweis: Wiederholungstests können durch Übung und Bekanntheit mit den Aufgabentypen leicht höher ausfallen.
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setShowProfileForm(v => !v)}
+            className="mt-4 text-xs text-blue-700 underline"
+          >
+            {showProfileForm ? 'Profil ausblenden' : 'Alter & Geschlecht (optional)'}
+          </button>
+          {showProfileForm && (
+            <div className="mt-3 text-left">
+              <IQDemographicsCard compact onSaved={() => setProfileVersion(v => v + 1)} />
+            </div>
+          )}
 
           {hasHistory && (
             <button
@@ -328,7 +424,7 @@ export default function IQTest({ onBack, onStartTraining, onSelectExercise, onOp
 
         {hasHistory && showHistory && (
           <div className="mt-4 shrink-0">
-            <HistoryCard history={history} />
+            <HistoryCard history={history} baselineId={baselineIdFromHistory(history)} />
           </div>
         )}
       </div>
@@ -336,51 +432,88 @@ export default function IQTest({ onBack, onStartTraining, onSelectExercise, onOp
   }
 
   if (stage === 'test' && cur) {
-    const frac = left / limit;
-    const warn = left <= 10;
+    const frac = memoryPhase === 'reveal' ? 1 : left / limit;
+    const warn = memoryPhase !== 'reveal' && left <= 10;
     const visual = cur.q.visual;
     const isVisualOpts = cur.q.options.some(o => typeof o !== 'string');
+    const recall = cur.q.memoryRecall;
+    const showAnswers = !recall || memoryPhase === 'recall';
+    const globalWarn = globalLeft <= 120;
     return (
       <div className="max-w-2xl mx-auto">
+        <div className="mb-4 p-4 rounded-2xl bg-gradient-to-r from-indigo-900 to-blue-800 text-white shadow-lg">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <div className="text-xs uppercase tracking-wider opacity-80">Gesamtzeit</div>
+              <div className={`text-4xl font-mono font-extrabold tabular-nums ${globalWarn ? 'text-amber-300' : ''}`}>
+                {fmtGlobalTime(globalLeft)}
+              </div>
+            </div>
+            <div className="text-right text-sm opacity-90">
+              <div>Frage {idx + 1} / {items.length}</div>
+              <div className="text-xs mt-0.5">{CATEGORY_INFO[cur.q.category].label}</div>
+            </div>
+          </div>
+          <div className="h-2 rounded-full bg-white/20 mt-3 overflow-hidden">
+            <div
+              className={`h-full transition-all ${globalWarn ? 'bg-amber-400' : 'bg-white'}`}
+              style={{ width: `${(globalLeft / GLOBAL_IQ_TIME_LIMIT_SEC) * 100}%` }}
+            />
+          </div>
+        </div>
         <div className="flex items-center justify-between mb-2 text-sm text-slate-600">
-          <span className="font-semibold">Frage {idx + 1} von {items.length}</span>
-          <span>{CATEGORY_INFO[cur.q.category].label}</span>
+          <span className="font-semibold">Fortschritt</span>
           <button onClick={abort} className="text-slate-400 hover:text-red-600">Abbrechen</button>
         </div>
         <div className="h-2 rounded-full bg-slate-200 mb-4 overflow-hidden">
           <div className="h-full bg-blue-700 transition-all" style={{ width: `${(idx / items.length) * 100}%` }} />
         </div>
         <div className="card">
-          <div className="flex items-center gap-3 mb-5">
-            <div className={`text-2xl font-mono font-bold tabular-nums w-16 ${warn ? 'text-red-600' : 'text-slate-800'}`}>
-              {Math.ceil(left)}s
+          {showAnswers && (
+            <div className="flex items-center gap-3 mb-5">
+              <div className="text-xs text-slate-500 w-16 shrink-0">Frage</div>
+              <div className={`text-2xl font-mono font-bold tabular-nums w-16 ${warn ? 'text-red-600' : 'text-slate-800'}`}>
+                {Math.ceil(left)}s
+              </div>
+              <div className="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden">
+                <div className={`h-full ${warn ? 'bg-red-500' : 'bg-blue-600'}`} style={{ width: `${frac * 100}%` }} />
+              </div>
             </div>
-            <div className="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden">
-              <div className={`h-full ${warn ? 'bg-red-500' : 'bg-blue-600'}`} style={{ width: `${frac * 100}%` }} />
+          )}
+          {recall && memoryPhase === 'reveal' && (
+            <div className="mb-5 p-5 rounded-xl bg-indigo-50 border border-indigo-100 text-center">
+              <p className="text-sm font-medium text-indigo-900 mb-3">Merke dir die Folge — gleich verschwindet sie.</p>
+              <div className="text-3xl font-bold tracking-widest text-indigo-950 flex flex-wrap justify-center gap-2">
+                {recall.sequence.map((ch, i) => (
+                  <span key={i} className="min-w-[2rem]">{ch}</span>
+                ))}
+              </div>
             </div>
-          </div>
-          <h2 className="text-xl font-semibold text-slate-800 mb-5">{cur.q.text}</h2>
+          )}
+          {showAnswers && <h2 className="text-xl font-semibold text-slate-800 mb-5">{cur.q.text}</h2>}
           {visual && (
             <div className="flex flex-wrap items-center justify-center gap-3 mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200">
               {visual.type === 'shapes'
-                ? visual.items.map((s, i) => <ShapeSvg key={i} s={s} />)
+                ? visual.items.map((s, i) => <ShapeRenderer key={i} s={s} />)
                 : visual.items.map((t, i) => t && <GlyphSvg key={i} t={t} />)}
             </div>
           )}
-          <div className={`grid gap-3 ${isVisualOpts ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2'}`}>
-            {cur.order.map((oi, pos) => (
-              <button
-                key={`${cur.q.id}-${pos}`}
-                onClick={() => answer(pos)}
-                className="flex items-center gap-3 p-4 rounded-xl border-2 border-slate-200 bg-white hover:border-blue-600 hover:bg-blue-50 text-left text-slate-800"
-              >
-                <span className="w-8 h-8 shrink-0 rounded-full bg-slate-100 text-slate-600 font-bold flex items-center justify-center">
-                  {String.fromCharCode(65 + pos)}
-                </span>
-                <span className="flex-1 flex justify-center sm:justify-start"><OptionView o={cur.q.options[oi]} /></span>
-              </button>
-            ))}
-          </div>
+          {showAnswers && (
+            <div className={`grid gap-3 ${isVisualOpts ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2'}`}>
+              {cur.order.map((oi, pos) => (
+                <button
+                  key={`${cur.q.id}-${pos}`}
+                  onClick={() => answer(pos)}
+                  className="flex items-center gap-3 p-4 rounded-xl border-2 border-slate-200 bg-white hover:border-blue-600 hover:bg-blue-50 text-left text-slate-800"
+                >
+                  <span className="w-8 h-8 shrink-0 rounded-full bg-slate-100 text-slate-600 font-bold flex items-center justify-center">
+                    {String.fromCharCode(65 + pos)}
+                  </span>
+                  <span className="flex-1 flex justify-center sm:justify-start"><OptionView o={cur.q.options[oi]} /></span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -393,10 +526,25 @@ export default function IQTest({ onBack, onStartTraining, onSelectExercise, onOp
         <div className="card text-center bg-gradient-to-br from-blue-900 to-indigo-700 text-white">
           <div className="text-sm uppercase tracking-widest opacity-80">Dein geschätzter IQ</div>
           <div className="text-8xl font-extrabold my-2">{result.iq}</div>
+          {(result.iqLow !== undefined && result.iqHigh !== undefined) && (
+            <p className="text-base opacity-90">Geschätzter Bereich: {result.iqLow}–{result.iqHigh}</p>
+          )}
           <div className="text-lg">{iqLabel(result.iq)}</div>
           <Gauge iq={result.iq} />
           <p className="mt-5 text-lg">Du bist besser als <b>{result.percentile}%</b> der Bevölkerung.</p>
-          <p className="text-sm opacity-80 mt-1">{result.correct} von {result.total} richtig · {Math.floor(result.durationSec / 60)} Min. {result.durationSec % 60} Sek.</p>
+          <p className="text-sm opacity-85 mt-2 px-2">{ageInterpretationHint(profileAge)}</p>
+          <p className="text-sm opacity-80 mt-1">
+            {result.correct} von {result.questionsAnswered ?? result.total} beantwortet richtig
+            {result.timedOutTest && (
+              <span className="block text-amber-200 mt-1">Zeit abgelaufen — Teilergebnis ({result.questionsAnswered ?? result.correct} Fragen)</span>
+            )}
+            · {Math.floor(result.durationSec / 60)} Min. {result.durationSec % 60} Sek.
+          </p>
+          {history.length >= 2 && (
+            <p className="text-xs mt-2 opacity-80 bg-white/10 rounded-lg px-3 py-2">
+              Übungseffekt: Wiederholungstests sind nicht 1:1 mit dem ersten Lauf vergleichbar.
+            </p>
+          )}
           {prev && (
             <p className="text-sm mt-2 opacity-90">
               Vorheriger Test: {prev.iq} ({result.iq - prev.iq >= 0 ? '+' : ''}{result.iq - prev.iq})
@@ -632,7 +780,22 @@ export default function IQTest({ onBack, onStartTraining, onSelectExercise, onOp
   return null;
 }
 
-function HistoryCard({ history }: { history: IQResult[] }) {
+function MotionProfileIntro({ onSkip, onSaved }: { onSkip: () => void; onSaved: () => void }) {
+  return (
+    <div className="card">
+      <h2 className="text-xl font-bold text-slate-800 mb-2">Optional: Dein Profil</h2>
+      <p className="text-sm text-slate-600 mb-4">
+        Alter und Geschlecht helfen bei der groben Einordnung — nur lokal, kein klinischer Normtest.
+      </p>
+      <IQDemographicsCard compact onSaved={onSaved} />
+      <button type="button" onClick={onSkip} className="w-full mt-3 py-3 rounded-xl border border-slate-300 text-slate-700 font-semibold">
+        Überspringen & Test starten
+      </button>
+    </div>
+  );
+}
+
+function HistoryCard({ history, baselineId }: { history: IQResult[]; baselineId: string | null }) {
   const first = history[0], last = history[history.length - 1];
   const diff = last.iq - first.iq;
   const W = 300, H = 90;
@@ -665,9 +828,14 @@ function HistoryCard({ history }: { history: IQResult[] }) {
       )}
       <ul className="divide-y divide-slate-100 text-sm max-h-40 overflow-auto mt-4">
         {[...history].reverse().map(r => (
-          <li key={r.id} className="flex justify-between py-2">
-            <span className="text-slate-600">{fmtDate(r.date)}</span>
-            <span className="text-slate-800"><b>IQ {r.iq}</b> · {r.correct}/{r.total}</span>
+          <li key={r.id} className="flex justify-between py-2 gap-2">
+            <span className="text-slate-600 truncate">{fmtDate(r.date)}</span>
+            <span className="text-slate-800 shrink-0">
+              {r.id === baselineId && (
+                <span className="text-[10px] uppercase font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded mr-1">Baseline</span>
+              )}
+              <b>IQ {r.iq}</b> · {r.correct}/{r.total}
+            </span>
           </li>
         ))}
       </ul>

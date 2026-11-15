@@ -6,8 +6,11 @@ import {
   getDifficultyHistory,
   getDifficultyLabel 
 } from '../utils/storage';
-import { loadHistory as loadIQHistory, CATEGORY_INFO, CATEGORY_ORDER } from '../iq/questions';
+import {
+  baselineIdFromHistory, loadHistory as loadIQHistory, CATEGORY_INFO, CATEGORY_ORDER,
+} from '../iq/questions';
 import type { IQResult } from '../iq/questions';
+import { loadBrainmasterProfile, profileSummaryLine } from '../iq/demographics';
 
 interface StatisticsProps {
   progress: UserProgress;
@@ -294,16 +297,22 @@ export default function Statistics({ progress, onBack }: StatisticsProps) {
       )}
 
       {section === 'iq' && (
-        iqHistory.length > 0 ? (
-          <div className="card mb-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <span>🧠</span> IQ-Test Verlauf
-            </h2>
-            <IQTrendCard history={iqHistory} />
+        <>
+          <div className="card mb-4 text-sm text-gray-600">
+            <span className="font-semibold text-gray-800">IQ-Profil: </span>
+            {profileSummaryLine(loadBrainmasterProfile())}
           </div>
-        ) : (
-          <div className="card text-center text-gray-500 py-8">Noch kein IQ-Test absolviert.</div>
-        )
+          {iqHistory.length > 0 ? (
+            <div className="card mb-6">
+              <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span>🧠</span> IQ-Test Verlauf
+              </h2>
+              <IQTrendCard history={iqHistory} baselineId={baselineIdFromHistory(iqHistory)} />
+            </div>
+          ) : (
+            <div className="card text-center text-gray-500 py-8">Noch kein IQ-Test absolviert.</div>
+          )}
+        </>
       )}
 
       {section === 'exercises' && (
@@ -436,7 +445,7 @@ export default function Statistics({ progress, onBack }: StatisticsProps) {
   );
 }
 
-function IQTrendCard({ history }: { history: IQResult[] }) {
+function IQTrendCard({ history, baselineId }: { history: IQResult[]; baselineId: string | null }) {
   if (history.length === 0) return null;
   
   const first = history[0];
@@ -458,7 +467,7 @@ function IQTrendCard({ history }: { history: IQResult[] }) {
     <div>
       <div className="grid grid-cols-3 gap-3 text-center mb-4">
         <div className="rounded-lg bg-blue-50 p-3">
-          <div className="text-xs text-gray-500">Erster Test</div>
+          <div className="text-xs text-gray-500">Baseline</div>
           <div className="text-2xl font-bold text-blue-700">{first.iq}</div>
         </div>
         <div className="rounded-lg bg-blue-50 p-3">
@@ -496,10 +505,17 @@ function IQTrendCard({ history }: { history: IQResult[] }) {
         <h3 className="text-sm font-semibold text-gray-700 mb-2">Letzte IQ-Test Ergebnisse</h3>
         <ul className="divide-y divide-gray-100 text-sm max-h-40 overflow-auto">
           {[...history].reverse().slice(0, 5).map(r => (
-            <li key={r.id} className="flex justify-between py-2">
+            <li key={r.id} className="flex justify-between py-2 gap-2">
               <span className="text-gray-600">{fmtDate(r.date)}</span>
-              <span className="text-gray-800">
-                <b>IQ {r.iq}</b> · {r.correct}/{r.total} richtig
+              <span className="text-gray-800 text-right">
+                {r.id === baselineId && (
+                  <span className="text-[10px] font-bold text-emerald-700 mr-1">BASELINE</span>
+                )}
+                <b>IQ {r.iq}</b>
+                {r.iqLow !== undefined && r.iqHigh !== undefined && (
+                  <span className="text-gray-500 text-xs"> ({r.iqLow}–{r.iqHigh})</span>
+                )}
+                {' · '}{r.correct}/{r.total}
               </span>
             </li>
           ))}

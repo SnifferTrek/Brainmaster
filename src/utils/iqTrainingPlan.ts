@@ -86,6 +86,8 @@ const CATEGORY_TO_GOAL: Record<Category, GoalId> = {
   analogy: 'words',
   spatial: 'logic',
   math: 'math',
+  working_memory: 'memory',
+  processing_speed: 'logic',
 };
 
 export function applyPlanToGoals(focusAreas: Category[]): void {
@@ -102,6 +104,8 @@ export function categoryToExerciseLabel(c: Category): string {
     analogy: 'Wörter',
     spatial: 'Logik',
     math: 'Mathe',
+    working_memory: 'Gedächtnis',
+    processing_speed: 'Logik / Tempo',
   };
   return map[c];
 }

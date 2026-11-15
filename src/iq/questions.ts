@@ -1,4 +1,18 @@
-export type Category = 'sequence' | 'pattern' | 'logic' | 'analogy' | 'spatial' | 'math';
+export type Category =
+  | 'sequence'
+  | 'pattern'
+  | 'logic'
+  | 'analogy'
+  | 'spatial'
+  | 'math'
+  | 'working_memory'
+  | 'processing_speed';
+
+/** Zielumfang pro Testlauf (Generatoren). */
+export const IQ_QUESTION_COUNT = 84;
+
+/** Gesamtzeitlimit für einen kompletten IQ-Testlauf (Sekunden). */
+export const GLOBAL_IQ_TIME_LIMIT_SEC = 1800;
 
 export const CATEGORY_INFO: Record<Category, { label: string; short: string; time: number; hint: string }> = {
   sequence: { label: 'Zahlenreihen', short: 'Zahlen', time: 45, hint: 'Numerisches Denken' },
@@ -7,9 +21,37 @@ export const CATEGORY_INFO: Record<Category, { label: string; short: string; tim
   analogy: { label: 'Wortanalogien', short: 'Sprache', time: 30, hint: 'Sprachliches Denken' },
   spatial: { label: 'Räumliches Denken', short: 'Raum', time: 60, hint: 'Räumliche Vorstellung' },
   math: { label: 'Schnelles Rechnen', short: 'Rechnen', time: 30, hint: 'Rechengeschwindigkeit' },
+  working_memory: { label: 'Arbeitsgedächtnis', short: 'Gedächtnis', time: 50, hint: 'Merken & Abrufen' },
+  processing_speed: { label: 'Verarbeitungsgeschwindigkeit', short: 'Tempo', time: 25, hint: 'Schnelle Suche' },
 };
 
-export const CATEGORY_ORDER: Category[] = ['sequence', 'pattern', 'logic', 'analogy', 'spatial', 'math'];
+export const CATEGORY_ORDER: Category[] = [
+  'sequence',
+  'pattern',
+  'logic',
+  'analogy',
+  'spatial',
+  'math',
+  'working_memory',
+  'processing_speed',
+];
+
+export interface NestedShapeSpec {
+  outer: 'square' | 'circle';
+  inner: 'circle' | 'triangle' | 'square';
+  outerFill?: boolean;
+  innerFill?: boolean;
+}
+
+export interface GridShapeSpec {
+  size: 2 | 3;
+  /** Zellen-Indizes 0…size²−1, die markiert sind */
+  filled: number[];
+  rot?: number;
+  cellFill?: boolean;
+  /** Markierte Zellen leer, alle anderen gefüllt */
+  invert?: boolean;
+}
 
 export interface ShapeSpec {
   kind: 'circle' | 'square' | 'triangle' | 'star' | 'diamond';
@@ -17,6 +59,11 @@ export interface ShapeSpec {
   rot?: number;
   size?: number;
   n?: number;
+  nested?: NestedShapeSpec;
+  grid?: GridShapeSpec;
+  /** Vordergrund-/Hintergrund-Füllung in einem Rahmen-Quadrat */
+  bgFill?: boolean;
+  fgFill?: boolean;
 }
 export interface Transform {
   flip: boolean;
@@ -27,12 +74,20 @@ export type Visual =
   | { type: 'glyph'; items: (Transform | null)[] };
 export type Option = string | ShapeSpec | Transform;
 
+export interface MemoryRecall {
+  sequence: string[];
+  showMs: number;
+  variant: 'digits' | 'symbols';
+}
+
 export interface Question {
   id: string;
   category: Category;
   difficulty: 1 | 2 | 3;
   text: string;
   visual?: Visual;
+  /** Merkphase (Arbeitsgedächtnis): zuerst zeigen, dann Antwort. */
+  memoryRecall?: MemoryRecall;
   /** Die richtige Antwort steht immer an Index 0 und wird zur Laufzeit gemischt. */
   options: Option[];
 }
@@ -120,14 +175,61 @@ export interface IQResult {
   id: string;
   date: string;
   iq: number;
+  /** Geschätzter IQ-Bereich (einfaches Konfidenzband, kein klinisches SEM). */
+  iqLow?: number;
+  iqHigh?: number;
   percentile: number;
   correct: number;
   total: number;
   categoryScores: Record<Category, number>;
   durationSec: number;
+  isBaseline?: boolean;
+  timedOutTest?: boolean;
+  questionsAnswered?: number;
+  globalTimeLimitSec?: number;
 }
 
-/** Geschätzter IQ: Basis 70, starke Gewichtung der Trefferquote, wenige Richtige → deutlich tiefer. */
+export interface IQScoreEstimate {
+  iq: number;
+  iqLow: number;
+  iqHigh: number;
+  sem: number;
+}
+
+/**
+ * Geschätzter IQ (App-Norm, streng):
+ * - Start aus Trefferquote: 58 + accuracy×72
+ * - Richtig: + bis 0.35×Schwierigkeit×Speed-Faktor (schnell unter Limit)
+ * - Falsch: −2.1×Schwierigkeit
+ * - Clamp 55–145, ganzzahlig gerundet
+ */
+/**
+ * Frage-Zeitlimit: in frühen Kapiteln leicht kürzer, später CATEGORY_INFO.time.
+ * @param categoryIndex 0…7 in CATEGORY_ORDER
+ */
+export function questionTimeLimit(
+  category: Category,
+  difficulty: 1 | 2 | 3,
+  categoryIndex: number,
+): number {
+  const base = CATEGORY_INFO[category].time;
+  if (categoryIndex <= 2) return Math.max(20, Math.round(base * (difficulty === 1 ? 0.88 : 0.92)));
+  if (categoryIndex >= 6) return base;
+  return Math.round(base * (difficulty >= 2 ? 1 : 0.95));
+}
+
+/** Schwierigkeit innerhalb eines Kapitels (0-basierter Slot, slots Gesamt). */
+export function difficultyForSlot(categoryIndex: number, slot: number, slots: number): 1 | 2 | 3 {
+  const t = (slot + 1) / slots;
+  let band: 1 | 2 | 3;
+  if (categoryIndex <= 1) band = t <= 0.55 ? 1 : t <= 0.85 ? 2 : 3;
+  else if (categoryIndex <= 3) band = t <= 0.35 ? 1 : t <= 0.7 ? 2 : 3;
+  else if (categoryIndex <= 5) band = t <= 0.25 ? 1 : t <= 0.55 ? 2 : 3;
+  else band = t <= 0.2 ? 2 : 3;
+  if (band === 1 && categoryIndex >= 4) return 2;
+  return band;
+}
+
 export function calcIQ(answers: AnswerRecord[]): number {
   const total = answers.length || 1;
   const correct = answers.filter(a => a.correct).length;
@@ -147,6 +249,22 @@ export function calcIQ(answers: AnswerRecord[]): number {
   }
 
   return Math.round(Math.min(145, Math.max(55, iq)));
+}
+
+/** Einfaches Schätzfehlerband aus Testlänge & Trefferquote — nicht klinisch. */
+export function calcIQWithBand(answers: AnswerRecord[]): IQScoreEstimate {
+  const iq = calcIQ(answers);
+  const n = answers.length || 1;
+  const correct = answers.filter(a => a.correct).length;
+  const accuracy = correct / n;
+  const lengthFactor = Math.max(0, IQ_QUESTION_COUNT - n) * 0.12;
+  const sem = Math.round(Math.min(14, Math.max(5, 6 + (1 - accuracy) * 9 + lengthFactor)));
+  return {
+    iq,
+    sem,
+    iqLow: Math.max(55, iq - sem),
+    iqHigh: Math.min(145, iq + sem),
+  };
 }
 
 function erf(x: number) {
@@ -191,6 +309,13 @@ export function loadHistory(): IQResult[] {
 }
 export function saveResult(r: IQResult) {
   const h = loadHistory();
-  h.push(r);
+  const withBaseline: IQResult = { ...r, isBaseline: h.length === 0 };
+  h.push(withBaseline);
   localStorage.setItem(KEY, JSON.stringify(h));
+}
+
+export function baselineIdFromHistory(history: IQResult[]): string | null {
+  const marked = history.find(r => r.isBaseline);
+  if (marked) return marked.id;
+  return history.length ? history[0].id : null;
 }

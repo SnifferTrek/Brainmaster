@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import type { UserProgress, ExerciseType, GameResult, AchievementId } from './types';
 import TrainingSession from './components/TrainingSession';
 import { playLevelUp, playAchievement, playDailyChallengeComplete } from './utils/sounds';
-import SoundToggle from './components/SoundToggle';
 import { getProgress, getTodayProgress, updateProgressWithResult, getDifficulty, checkAndUnlockAchievements } from './utils/storage';
 import LogicGame from './components/LogicGame';
 import MemoryGame from './components/MemoryGame';
@@ -294,7 +293,6 @@ function App() {
         </div>
       )}
 
-      {currentView !== 'session' && <SoundToggle />}
       {showOnboarding && (
         <Onboarding
           replayMode={onboardingReplay}
