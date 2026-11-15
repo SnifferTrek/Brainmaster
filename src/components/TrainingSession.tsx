@@ -15,6 +15,7 @@ import LogicGame from './LogicGame';
 import MemoryGame from './MemoryGame';
 import MathGame from './MathGame';
 import WordGame from './WordGame';
+import SessionTopBar from './SessionTopBar';
 
 type Phase = 'exercise' | 'round-result' | 'summary';
 
@@ -162,15 +163,15 @@ export default function TrainingSession({ progress, onProgress, onExit, onNewAch
     const sessionPlanDone = rounds.length >= totalPlanned;
 
     return (
-      <div className="max-w-lg mx-auto px-4 py-8 pb-28 space-y-4">
-        <div className="flex justify-between items-center text-sm text-gray-500">
-          <span>
-            {rounds.length}/{totalPlanned} erledigt · noch {timeUp ? '0:00' : formatSessionTime(remainingSec)}
-          </span>
-          <button type="button" onClick={endSession} className="text-red-600 font-medium">
-            Abbrechen
-          </button>
-        </div>
+      <div className="max-w-lg mx-auto px-4 pt-2 pb-28 space-y-4">
+        <SessionTopBar
+          onAbort={endSession}
+          left={
+            <span>
+              {rounds.length}/{totalPlanned} erledigt · noch {timeUp ? '0:00' : formatSessionTime(remainingSec)}
+            </span>
+          }
+        />
         <div className="card text-center">
           <h2 className="text-lg font-bold text-gray-800 mb-2">{exerciseLabel(lastResult.type)} — Runde fertig</h2>
           <div className="text-4xl font-bold text-primary-600">+{lastResult.score}</div>
@@ -230,21 +231,22 @@ export default function TrainingSession({ progress, onProgress, onExit, onNewAch
   const sessionPct = totalPlanned > 0 ? Math.min(100, (rounds.length / totalPlanned) * 100) : 0;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-4 pb-8">
-      <div className="flex justify-between items-center mb-2 text-sm gap-3">
-        <div className="min-w-0">
-          <div className="font-semibold text-gray-800">{sessionProgressLabel}</div>
-          <div className="text-gray-500 truncate">{exerciseLabel(currentType)} · {planLine}</div>
-        </div>
-        <div className="text-right shrink-0">
-          <div className={`font-mono font-bold ${remainingSec <= 60 && !extendAfterTime ? 'text-red-600' : 'text-primary-700'}`}>
-            {extendAfterTime ? '∞' : formatSessionTime(remainingSec)}
+    <div className="max-w-4xl mx-auto px-4 pt-2 pb-8">
+      <SessionTopBar
+        onAbort={endSession}
+        abortLabel="Abbrechen"
+        left={
+          <div className="min-w-0">
+            <div className="font-semibold text-gray-800">{sessionProgressLabel}</div>
+            <div className="text-gray-500 truncate text-xs">
+              {exerciseLabel(currentType)} ·{' '}
+              <span className={`font-mono font-bold ${remainingSec <= 60 && !extendAfterTime ? 'text-red-600' : 'text-primary-700'}`}>
+                {extendAfterTime ? '∞' : formatSessionTime(remainingSec)}
+              </span>
+            </div>
           </div>
-          <button type="button" onClick={endSession} className="text-red-600 text-xs font-medium mt-1">
-            Session abbrechen
-          </button>
-        </div>
-      </div>
+        }
+      />
       {!onExtraRound && totalPlanned > 1 && (
         <div className="mb-4">
           <div className="flex justify-between text-[11px] text-gray-500 mb-1">

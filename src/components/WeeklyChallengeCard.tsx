@@ -30,16 +30,16 @@ export default function WeeklyChallengeCard({ onOpenCatalog }: WeeklyChallengeCa
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/90 px-3 py-2.5 text-left active:bg-gray-100 min-h-[44px]"
+        className="w-full mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-left active:bg-amber-100/80 min-h-[44px] shadow-sm"
         aria-label={`Impuls der Woche, ${weekLabel}, ${statusLabel}`}
       >
-        <span className="flex-1 min-w-0 text-sm text-gray-800 truncate">
-          <span className="font-medium">Impuls der Woche</span>
-          <span className="text-gray-500"> · {weekLabel}</span>
+        <span className="flex-1 min-w-0 text-sm text-amber-950 truncate">
+          <span className="font-semibold">Impuls der Woche</span>
+          <span className="text-amber-900/70"> · {weekLabel}</span>
         </span>
         <span
           className={`shrink-0 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
-            completed ? 'bg-green-100 text-green-800' : 'bg-white text-gray-600 border border-gray-200'
+            completed ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-900 border border-amber-300/80'
           }`}
         >
           {statusLabel}

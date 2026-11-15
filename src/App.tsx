@@ -294,7 +294,7 @@ function App() {
         </div>
       )}
 
-      <SoundToggle />
+      {currentView !== 'session' && <SoundToggle />}
       {showOnboarding && (
         <Onboarding
           replayMode={onboardingReplay}
