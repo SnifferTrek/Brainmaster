@@ -4,7 +4,6 @@ import TrainingSession from './components/TrainingSession';
 import { playLevelUp, playAchievement, playDailyChallengeComplete } from './utils/sounds';
 import SoundToggle from './components/SoundToggle';
 import { getProgress, getTodayProgress, updateProgressWithResult, getDifficulty, checkAndUnlockAchievements } from './utils/storage';
-import Dashboard from './components/Dashboard';
 import LogicGame from './components/LogicGame';
 import MemoryGame from './components/MemoryGame';
 import MathGame from './components/MathGame';
@@ -28,10 +27,16 @@ import Onboarding from './components/Onboarding';
 import { isOnboardingDone } from './utils/onboarding';
 import { applyPlacementLevel } from './utils/trainingLevel';
 import Settings from './components/Settings';
+import { getRecommendation } from './utils/trainingPlan';
+import { getTrainingPlan } from './utils/iqTrainingPlan';
 
 type View = 'dashboard' | 'plan' | 'statistics' | 'achievements' | 'settings' | 'iq' | 'session' | ExerciseType;
 
 const EXERCISE_VIEWS: ExerciseType[] = ['logic', 'memory', 'math', 'words'];
+
+function defaultHubType(): ExerciseType {
+  return getRecommendation(getProgress()).next ?? 'logic';
+}
 
 const TABS: { view: View; label: string; icon: string }[] = [
   { view: 'dashboard', label: 'Start', icon: '🏠' },
@@ -49,7 +54,7 @@ function App() {
   const [newAchievements, setNewAchievements] = useState<AchievementId[]>([]);
   const [showOnboarding, setShowOnboarding] = useState(!isOnboardingDone());
   const [onboardingReplay, setOnboardingReplay] = useState(false);
-  const [exerciseHub, setExerciseHub] = useState<ExerciseType | null>(null);
+  const [exerciseHub, setExerciseHub] = useState<ExerciseType>(defaultHubType);
   const [shareConfirm, setShareConfirm] = useState(false);
 
   const [profile, setProfile] = useState<Profile | null>(getProfile());
@@ -119,6 +124,7 @@ function App() {
     const backToSettings = onboardingReplay;
     setShowOnboarding(false);
     setOnboardingReplay(false);
+    if (!backToSettings) setExerciseHub(defaultHubType());
     setCurrentView(backToSettings ? 'settings' : 'dashboard');
   }, [onboardingReplay]);
 
@@ -174,7 +180,6 @@ function App() {
 
   const startExerciseFromHub = useCallback((type: ExerciseType) => {
     setLive(prev => ({ ...emptyLiveStats(sessionPoints.current), memoryScore: prev.memoryScore, mathBest: prev.mathBest, logicBest: prev.logicBest }));
-    setExerciseHub(null);
     setCurrentView(type);
   }, []);
 
@@ -182,6 +187,11 @@ function App() {
     setLive(emptyLiveStats(sessionPoints.current));
     setCurrentView('session');
   }, []);
+
+  const startFromHub = useCallback(() => {
+    if (getTrainingPlan()) handleStartSession();
+    else startExerciseFromHub(exerciseHub);
+  }, [exerciseHub, handleStartSession, startExerciseFromHub]);
 
   const handleAnswer = useCallback((type: 'math' | 'logic', correct: boolean) => {
     setLive(prev => {
@@ -222,6 +232,7 @@ function App() {
       if (unlockedAchievements.length > 0) {
         setNewAchievements(unlockedAchievements);
       }
+      setExerciseHub(defaultHubType());
       setCurrentView('dashboard');
     }, 2000);
   }, []);
@@ -231,15 +242,15 @@ function App() {
   }, []);
 
   const handleBack = useCallback(() => {
-    setExerciseHub(null);
+    setExerciseHub(defaultHubType());
     setCurrentView('dashboard');
   }, []);
 
   const isTab = TABS.some(t => t.view === currentView);
 
   const switchTab = useCallback((view: View) => {
-    setExerciseHub(null);
     setCurrentView(view);
+    if (view === 'dashboard') setExerciseHub(defaultHubType());
   }, []);
 
   const renderGame = () => {
@@ -348,36 +359,21 @@ function App() {
 
       <div className={isTab ? 'pb-[calc(5.5rem+env(safe-area-inset-bottom))]' : ''}>
         {currentView === 'dashboard' ? (
-          exerciseHub ? (
-            <ExerciseOverview
-              type={exerciseHub}
-              progress={progress}
-              onBack={() => setExerciseHub(null)}
-              onStart={() => startExerciseFromHub(exerciseHub)}
-              onShowPlan={() => {
-                setExerciseHub(null);
-                setCurrentView('plan');
-              }}
-              onStartIQ={() => {
-                setExerciseHub(null);
-                setCurrentView('iq');
-              }}
-            />
-          ) : (
-            <Dashboard
-              progress={progress}
-              onSelectExercise={handleSelectExercise}
-              onShowPlan={() => setCurrentView('plan')}
-              onStartIQ={() => setCurrentView('iq')}
-              onStartSession={handleStartSession}
-            />
-          )
+          <ExerciseOverview
+            type={exerciseHub}
+            progress={progress}
+            onChangeCategory={setExerciseHub}
+            onStart={startFromHub}
+            onShowPlan={() => setCurrentView('plan')}
+            onStartIQ={() => setCurrentView('iq')}
+          />
         ) : currentView === 'session' ? (
           <TrainingSession
             progress={progress}
             onProgress={setProgress}
             onExit={() => {
               setProgress(getProgress());
+              setExerciseHub(defaultHubType());
               setCurrentView('dashboard');
             }}
             onNewAchievements={setNewAchievements}

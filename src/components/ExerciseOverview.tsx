@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import type { ExerciseType, UserProgress } from '../types';
 import { getDifficultyLabel } from '../utils/storage';
 import { getPlanModules, togglePlanModule, isPlanModuleSelected } from '../utils/iqTrainingPlan';
+import { effectiveLevelHint, getEffectiveLevelInfo } from '../utils/trainingLevel';
 
 interface DrillCard {
   id: string;
@@ -9,6 +10,13 @@ interface DrillCard {
   subtitle: string;
   emoji: string;
 }
+
+const CATEGORIES: { type: ExerciseType; label: string; emoji: string }[] = [
+  { type: 'logic', label: 'Logik', emoji: '🧩' },
+  { type: 'memory', label: 'Gedächtnis', emoji: '🃏' },
+  { type: 'math', label: 'Kopfrechnen', emoji: '🧮' },
+  { type: 'words', label: 'Wortspiele', emoji: '📝' },
+];
 
 const PREPARED_TITLE: Record<ExerciseType, string> = {
   logic: 'Für dich vorbereitet: Logik',
@@ -41,29 +49,34 @@ const DRILLS: Record<ExerciseType, DrillCard[]> = {
 interface ExerciseOverviewProps {
   type: ExerciseType;
   progress: UserProgress;
-  onBack: () => void;
+  onChangeCategory: (type: ExerciseType) => void;
   onStart: () => void;
   onShowPlan: () => void;
   onStartIQ: () => void;
 }
 
-function SelectionBadge({ selected }: { selected: boolean }) {
+function PlanCircle({ selected, onToggle }: { selected: boolean; onToggle: () => void }) {
   return (
-    <span
-      className={`absolute bottom-3 right-3 w-7 h-7 rounded-full border-2 flex items-center justify-center text-sm font-bold shadow-sm ${
-        selected ? 'bg-primary-600 border-primary-600 text-white' : 'bg-white border-gray-300 text-transparent'
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold shadow-sm transition-colors ${
+        selected
+          ? 'bg-primary-600 border-primary-600 text-white'
+          : 'bg-white border-gray-300 text-gray-300 hover:border-primary-400'
       }`}
-      aria-hidden
+      aria-label={selected ? 'Aus Plan entfernen' : 'Zum Plan hinzufügen'}
+      aria-pressed={selected}
     >
       {selected ? '✓' : ''}
-    </span>
+    </button>
   );
 }
 
 export default function ExerciseOverview({
   type,
   progress,
-  onBack,
+  onChangeCategory,
   onStart,
   onShowPlan,
   onStartIQ,
@@ -71,47 +84,79 @@ export default function ExerciseOverview({
   const [, bump] = useState(0);
   const level = progress.difficulty[type].level;
   const selected = isPlanModuleSelected(type);
+  const levelInfo = getEffectiveLevelInfo();
+  const levelHint = effectiveLevelHint(levelInfo);
 
   const refresh = useCallback(() => bump(n => n + 1), []);
 
-  const togglePlan = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const togglePlan = () => {
     togglePlanModule(type);
     refresh();
   };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 pb-28">
-      <button type="button" onClick={onBack} className="text-gray-500 hover:text-gray-800 mb-4 text-sm">
-        ← Zurück
-      </button>
-      <h1 className="text-2xl font-bold text-gray-800 mb-1">{PREPARED_TITLE[type]}</h1>
+      <header className="mb-4">
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-600 to-accent-600 bg-clip-text text-transparent">
+          🧠 Gehirntraining
+        </h1>
+        <div className="flex gap-2 mt-3 text-center text-xs">
+          <span className="flex-1 card py-2">
+            <span className="font-bold text-gray-800">⭐ {levelInfo.effective}</span>
+            <span className="block text-gray-500">Übungsstufe</span>
+          </span>
+          <span className="flex-1 card py-2">
+            <span className="font-bold text-gray-800">🔥 {progress.currentStreak}</span>
+            <span className="block text-gray-500">Streak</span>
+          </span>
+        </div>
+      </header>
+
+      {levelHint && (
+        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+          {levelHint}
+        </p>
+      )}
+
+      <div className="grid grid-cols-4 gap-1.5 mb-5">
+        {CATEGORIES.map(cat => {
+          const active = cat.type === type;
+          return (
+            <button
+              key={cat.type}
+              type="button"
+              onClick={() => onChangeCategory(cat.type)}
+              className={`rounded-xl py-2 px-1 text-center text-[10px] sm:text-xs font-semibold transition-all ${
+                active
+                  ? 'bg-primary-100 text-primary-900 ring-2 ring-primary-500 shadow-sm'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <span className="text-base block">{cat.emoji}</span>
+              {cat.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <h2 className="text-xl font-bold text-gray-800 mb-1">{PREPARED_TITLE[type]}</h2>
       <p className="text-gray-500 text-sm mb-6">
-        Stufe {level} ({getDifficultyLabel(level)}) · Kreis unten rechts = im Tagesplan
+        Stufe {level} ({getDifficultyLabel(level)}) · Kreis unten rechts anklicken für Tagesplan
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
         {DRILLS[type].map(drill => (
-          <button
+          <div
             key={drill.id}
-            type="button"
-            onClick={onStart}
-            className="card-hover relative text-left p-4 pr-12 min-h-[88px]"
+            className="card relative text-left p-4 pr-12 min-h-[88px]"
           >
             <span className="text-2xl">{drill.emoji}</span>
             <div className="font-semibold text-gray-800 mt-1">{drill.title}</div>
             <p className="text-xs text-gray-500">{drill.subtitle}</p>
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={togglePlan}
-              onKeyDown={ev => ev.key === 'Enter' && togglePlan(ev as unknown as React.MouseEvent)}
-              className="absolute bottom-3 right-3"
-              aria-label={selected ? 'Aus Plan entfernen' : 'Zum Plan hinzufügen'}
-            >
-              <SelectionBadge selected={selected} />
-            </span>
-          </button>
+            <div className="absolute bottom-3 right-3">
+              <PlanCircle selected={selected} onToggle={togglePlan} />
+            </div>
+          </div>
         ))}
       </div>
 
