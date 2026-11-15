@@ -94,8 +94,6 @@ export default function ExerciseOverview({
         </div>
       </header>
 
-      <WeeklyChallengeCard onOpenCatalog={onOpenWeeklyCatalog} />
-
       {levelHint && (
         <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
           {levelHint}
@@ -111,6 +109,8 @@ export default function ExerciseOverview({
           <p className="text-xs text-green-700 mt-2">Optional: weiter trainieren oder für heute pausieren.</p>
         </div>
       )}
+
+      <WeeklyChallengeCard onOpenCatalog={onOpenWeeklyCatalog} />
 
       <section className="mb-8">
         <h2 className="text-lg font-bold text-gray-800 mb-3">Für dich vorbereitet</h2>
