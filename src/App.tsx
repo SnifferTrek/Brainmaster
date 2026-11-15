@@ -30,6 +30,7 @@ import Settings from './components/Settings';
 import TabBar, { isTabView } from './components/TabBar';
 import { getPreparedExerciseTypes, getRecommendation } from './utils/trainingPlan';
 import { getTrainingPlan } from './utils/iqTrainingPlan';
+import { syncWeeklyNotification } from './utils/weeklyNotifications';
 
 type View = 'dashboard' | 'plan' | 'statistics' | 'achievements' | 'settings' | 'iq' | 'session' | ExerciseType;
 
@@ -142,6 +143,10 @@ function App() {
     const loadedProgress = getProgress();
     setProgress(loadedProgress);
     checkAndUnlockAchievements(loadedProgress);
+  }, []);
+
+  useEffect(() => {
+    syncWeeklyNotification().catch(() => {});
   }, []);
 
   useEffect(() => {

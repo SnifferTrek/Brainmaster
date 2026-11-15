@@ -2,6 +2,14 @@ import { useMemo, useState } from 'react';
 import ProfileCard from './ProfileCard';
 import type { UserProgress } from '../types';
 import { getReminderPrefs, setReminderEnabled, setReminderHour } from '../utils/reminder';
+import {
+  getWeeklyNotificationPrefs,
+  setWeeklyNotificationPrefs,
+  syncWeeklyNotification,
+  WEEKDAY_LABELS,
+  isNativeNotificationsAvailable,
+} from '../utils/weeklyNotifications';
+import { WEEKLY_TASKS } from '../utils/weeklyChallenge';
 import { NAME_KEY, buildProfile } from '../utils/profile';
 import { getProfile } from '../utils/social';
 
@@ -24,6 +32,9 @@ export default function Settings({
 }: SettingsProps) {
   const [showProfile, setShowProfile] = useState(false);
   const [reminder, setReminder] = useState(() => getReminderPrefs());
+  const [weeklyNotif, setWeeklyNotif] = useState(() => getWeeklyNotificationPrefs());
+  const [notifStatus, setNotifStatus] = useState<string | null>(null);
+  const [showTaskList, setShowTaskList] = useState(false);
   const displayName = localStorage.getItem(NAME_KEY) || getProfile()?.name || '';
   const profilePreview = useMemo(() => buildProfile(progress), [progress, displayName]);
 
@@ -37,6 +48,20 @@ export default function Settings({
     setReminderHour(h);
     setReminder({ ...reminder, hour: h });
   };
+
+  const applyWeeklyNotif = async (partial: Partial<typeof weeklyNotif>) => {
+    const next = setWeeklyNotificationPrefs(partial);
+    setWeeklyNotif(next);
+    const result = await syncWeeklyNotification();
+    if (result === 'scheduled') setNotifStatus('Wochenimpuls wird am Sperrbildschirm eingeplant.');
+  else if (result === 'denied') setNotifStatus('Bitte Benachrichtigungen in den iOS-Einstellungen erlauben.');
+  else if (result === 'web') setNotifStatus('Nur in der installierten iOS-App verfügbar.');
+  else if (result === 'disabled') setNotifStatus(null);
+    else setNotifStatus('Planung fehlgeschlagen — bitte erneut versuchen.');
+    if (result === 'scheduled') setTimeout(() => setNotifStatus(null), 4000);
+  };
+
+  const toggleWeeklyNotif = () => applyWeeklyNotif({ enabled: !weeklyNotif.enabled });
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 pb-28">
@@ -97,6 +122,78 @@ export default function Settings({
               className={`absolute top-1 left-1 w-8 h-8 rounded-full bg-white shadow transition-transform ${reminder.enabled ? 'translate-x-6' : ''}`}
             />
           </button>
+        </div>
+
+        <div className="border-t border-gray-100 mt-4 pt-4">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="min-w-0">
+              <span className="font-medium text-gray-800 text-base block">Wochenimpuls (Sperrbildschirm)</span>
+              <span className="text-xs text-gray-500">Lokale Benachrichtigung mit der Aufgabe der Woche</span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={weeklyNotif.enabled}
+              onClick={toggleWeeklyNotif}
+              className={`relative shrink-0 w-16 h-10 rounded-full transition-colors ${weeklyNotif.enabled ? 'bg-violet-600' : 'bg-gray-300'}`}
+            >
+              <span
+                className={`absolute top-1 left-1 w-8 h-8 rounded-full bg-white shadow transition-transform ${weeklyNotif.enabled ? 'translate-x-6' : ''}`}
+              />
+            </button>
+          </div>
+          {weeklyNotif.enabled && isNativeNotificationsAvailable() && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              <select
+                className="rounded-lg border border-gray-200 px-2 py-2 text-sm flex-1 min-w-[8rem]"
+                value={weeklyNotif.weekday}
+                onChange={e => applyWeeklyNotif({ weekday: Number(e.target.value) })}
+                aria-label="Wochentag"
+              >
+                {WEEKDAY_LABELS.map(d => (
+                  <option key={d.value} value={d.value}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="rounded-lg border border-gray-200 px-2 py-2 text-sm max-w-[5.5rem]"
+                value={weeklyNotif.hour}
+                onChange={e => applyWeeklyNotif({ hour: Number(e.target.value) })}
+                aria-label="Uhrzeit Wochenimpuls"
+              >
+                {Array.from({ length: 24 }, (_, i) => (
+                  <option key={i} value={i}>
+                    {String(i).padStart(2, '0')}:00
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {notifStatus && <p className="text-xs text-violet-800 mb-2">{notifStatus}</p>}
+          <button
+            type="button"
+            onClick={() => setShowTaskList(v => !v)}
+            className="text-sm text-primary-700 font-medium underline"
+          >
+            {showTaskList ? 'Liste der Wochenaufgaben ausblenden' : 'Liste aller Wochenaufgaben anzeigen'}
+          </button>
+          {showTaskList && (
+            <ul className="mt-3 space-y-2 text-sm text-gray-700 max-h-56 overflow-y-auto">
+              {WEEKLY_TASKS.map(t => (
+                <li key={t.id} className="flex gap-2 items-start border-b border-gray-100 pb-2">
+                  <span>{t.emoji}</span>
+                  <span>
+                    <span className="font-medium">{t.title}</span>
+                    <span className="block text-xs text-gray-500">{t.hint}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-[10px] text-gray-400 mt-2">
+            Pro Kalenderwoche erscheint eine zufällige Aufgabe aus dieser Liste (Rotation).
+          </p>
         </div>
       </section>
 

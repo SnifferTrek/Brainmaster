@@ -78,5 +78,7 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Brainmaster kann dir optional den wöchentlichen Impuls und Trainings-Erinnerungen auf dem Sperrbildschirm anzeigen.</string>
 </dict>
 </plist>
