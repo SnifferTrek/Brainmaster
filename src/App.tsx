@@ -10,8 +10,10 @@ import MemoryGame from './components/MemoryGame';
 import MathGame from './components/MathGame';
 import WordGame from './components/WordGame';
 import IQTest from './iq/IQTest';
-import { NameModal, ShareModal, CompareModal, FriendsModal } from './components/Social';
-import { getProfile, createProfile, buildStats, createShareLink, decodeShare, getFriends, saveFriend, removeFriend } from './utils/social';
+import { NameModal, ShareConfirmModal, CompareModal, FriendsModal } from './components/Social';
+import { getProfile, createProfile, buildStats, decodeShare, getFriends, saveFriend, removeFriend } from './utils/social';
+import { shareStatsNative } from './utils/shareProgress';
+import ExerciseOverview from './components/ExerciseOverview';
 import type { Profile, SharedStats } from './utils/social';
 import ChallengeCard from './components/ChallengeCard';
 import {
@@ -29,6 +31,8 @@ import Settings from './components/Settings';
 
 type View = 'dashboard' | 'plan' | 'statistics' | 'achievements' | 'settings' | 'iq' | 'session' | ExerciseType;
 
+const EXERCISE_VIEWS: ExerciseType[] = ['logic', 'memory', 'math', 'words'];
+
 const TABS: { view: View; label: string; icon: string }[] = [
   { view: 'dashboard', label: 'Start', icon: '🏠' },
   { view: 'plan', label: 'Plan', icon: '🎯' },
@@ -44,6 +48,9 @@ function App() {
   const [lastScore, setLastScore] = useState(0);
   const [newAchievements, setNewAchievements] = useState<AchievementId[]>([]);
   const [showOnboarding, setShowOnboarding] = useState(!isOnboardingDone());
+  const [onboardingReplay, setOnboardingReplay] = useState(false);
+  const [exerciseHub, setExerciseHub] = useState<ExerciseType | null>(null);
+  const [shareConfirm, setShareConfirm] = useState(false);
 
   const [profile, setProfile] = useState<Profile | null>(getProfile());
   const [friends, setFriends] = useState<SharedStats[]>(getFriends());
@@ -85,27 +92,35 @@ function App() {
       setIncoming(null);
       setModal('compare');
     } else if (afterName === 'share') {
-      setModal('share');
+      setShareConfirm(true);
     } else setModal(null);
     setAfterName(null);
   };
+
+  const myStats = profile ? buildStats(profile, progress) : null;
 
   const handleShare = () => {
     if (!profile) {
       setAfterName('share');
       setModal('name');
-    } else setModal('share');
+    } else setShareConfirm(true);
   };
 
-  const myStats = profile ? buildStats(profile, progress) : null;
+  const runShare = useCallback(async () => {
+    setShareConfirm(false);
+    if (!myStats) return;
+    await shareStatsNative(myStats);
+  }, [myStats]);
   const handleOnboardingFinish = useCallback((startLevel: number | null) => {
     if (startLevel != null && startLevel >= 1) {
       applyPlacementLevel(startLevel);
     }
     setProgress(getProgress());
+    const backToSettings = onboardingReplay;
     setShowOnboarding(false);
-    setCurrentView('dashboard');
-  }, []);
+    setOnboardingReplay(false);
+    setCurrentView(backToSettings ? 'settings' : 'dashboard');
+  }, [onboardingReplay]);
 
   const handleOnboardingStartIQTest = useCallback((startLevel: number) => {
     if (startLevel >= 1) {
@@ -113,6 +128,7 @@ function App() {
     }
     setProgress(getProgress());
     setShowOnboarding(false);
+    setOnboardingReplay(false);
     setCurrentView('iq');
   }, []);
 
@@ -152,7 +168,13 @@ function App() {
   }, [live, challenge, completed, progress]);
 
   const handleSelectExercise = useCallback((type: ExerciseType) => {
+    setExerciseHub(type);
+    setCurrentView('dashboard');
+  }, []);
+
+  const startExerciseFromHub = useCallback((type: ExerciseType) => {
     setLive(prev => ({ ...emptyLiveStats(sessionPoints.current), memoryScore: prev.memoryScore, mathBest: prev.mathBest, logicBest: prev.logicBest }));
+    setExerciseHub(null);
     setCurrentView(type);
   }, []);
 
@@ -209,10 +231,16 @@ function App() {
   }, []);
 
   const handleBack = useCallback(() => {
+    setExerciseHub(null);
     setCurrentView('dashboard');
   }, []);
 
   const isTab = TABS.some(t => t.view === currentView);
+
+  const switchTab = useCallback((view: View) => {
+    setExerciseHub(null);
+    setCurrentView(view);
+  }, []);
 
   const renderGame = () => {
     switch (currentView) {
@@ -256,7 +284,18 @@ function App() {
       )}
 
       <SoundToggle />
-      {showOnboarding && <Onboarding onFinish={handleOnboardingFinish} onStartIQTest={handleOnboardingStartIQTest} />}
+      {showOnboarding && (
+        <Onboarding
+          replayMode={onboardingReplay}
+          onClose={() => {
+            setShowOnboarding(false);
+            setOnboardingReplay(false);
+            setCurrentView('settings');
+          }}
+          onFinish={handleOnboardingFinish}
+          onStartIQTest={handleOnboardingStartIQTest}
+        />
+      )}
       {showCelebration && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white rounded-3xl p-8 text-center shadow-2xl animate-scaleIn max-w-sm mx-4">
@@ -286,7 +325,9 @@ function App() {
         </div>
       )}
       {modal === 'name' && <NameModal onSave={handleSaveName} onClose={() => { setModal(null); setAfterName(null); setIncoming(null); }} />}
-      {modal === 'share' && myStats && <ShareModal link={createShareLink(myStats)} onClose={() => setModal(null)} />}
+      {shareConfirm && myStats && (
+        <ShareConfirmModal onConfirm={runShare} onClose={() => setShareConfirm(false)} />
+      )}
       {modal === 'compare' && myStats && compareWith && <CompareModal me={myStats} friend={compareWith} onClose={() => setModal(null)} />}
       {modal === 'friends' && myStats && (
         <FriendsModal
@@ -307,13 +348,30 @@ function App() {
 
       <div className={isTab ? 'pb-[calc(5.5rem+env(safe-area-inset-bottom))]' : ''}>
         {currentView === 'dashboard' ? (
-          <Dashboard
-            progress={progress}
-            onSelectExercise={handleSelectExercise}
-            onShowPlan={() => setCurrentView('plan')}
-            onStartIQ={() => setCurrentView('iq')}
-            onStartSession={handleStartSession}
-          />
+          exerciseHub ? (
+            <ExerciseOverview
+              type={exerciseHub}
+              progress={progress}
+              onBack={() => setExerciseHub(null)}
+              onStart={() => startExerciseFromHub(exerciseHub)}
+              onShowPlan={() => {
+                setExerciseHub(null);
+                setCurrentView('plan');
+              }}
+              onStartIQ={() => {
+                setExerciseHub(null);
+                setCurrentView('iq');
+              }}
+            />
+          ) : (
+            <Dashboard
+              progress={progress}
+              onSelectExercise={handleSelectExercise}
+              onShowPlan={() => setCurrentView('plan')}
+              onStartIQ={() => setCurrentView('iq')}
+              onStartSession={handleStartSession}
+            />
+          )
         ) : currentView === 'session' ? (
           <TrainingSession
             progress={progress}
@@ -336,12 +394,15 @@ function App() {
           <Settings
             progress={progress}
             onBack={handleBack}
-            onRepeatIntro={() => setShowOnboarding(true)}
+            onRepeatIntro={() => {
+              setOnboardingReplay(true);
+              setShowOnboarding(true);
+            }}
             onShare={handleShare}
             onShowFriends={() => setModal('friends')}
             friendCount={friends.length}
           />
-        ) : (
+        ) : currentView === 'iq' || EXERCISE_VIEWS.includes(currentView as ExerciseType) ? (
           <div className="max-w-4xl mx-auto px-4 py-8">
             <div className="mb-4">
               <ChallengeCard
@@ -353,7 +414,7 @@ function App() {
             </div>
             {renderGame()}
           </div>
-        )}
+        ) : null}
       </div>
 
       {isTab && (
@@ -367,7 +428,7 @@ function App() {
               return (
                 <button
                   key={t.view}
-                  onClick={() => setCurrentView(t.view)}
+                  onClick={() => switchTab(t.view)}
                   aria-current={active ? 'page' : undefined}
                   className={`relative flex flex-col items-center gap-0.5 py-2.5 px-1.5 rounded-2xl transition-all ${
                     active
